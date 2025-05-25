@@ -10,7 +10,7 @@ void do_write(std::shared_ptr<tcp::socket> socket, const std::string& message) {
 void on_write(std::shared_ptr<tcp::socket> socket, const asio::error_code& ec, std::size_t /*length*/) {
     if (!ec) {
         std::cout << "[Client] Message sent, awaiting reply..." << std::endl;
-        do_read(socket); // Después de enviar, espera la respuesta
+        do_read(socket);
     } else {
         std::cerr << "Error on_write: " << ec.message() << std::endl;
     }
@@ -33,7 +33,6 @@ void on_read(std::shared_ptr<tcp::socket> socket, std::shared_ptr<asio::streambu
         
         std::cout << "[Client] Server response (" << length << " bytes): '" << response << "'" << std::endl;
         
-        // Solicitar nuevo mensaje al usuario
         std::string message;
         std::cout << "Write a message: ";
         std::getline(std::cin, message);
@@ -64,12 +63,12 @@ int main() {
         auto socket = std::make_shared<tcp::socket>(io);
         asio::connect(*socket, endpoints);
         
-        std::cout << "Conectado al servidor. Escribe mensajes y presiona Enter.\n";
+        std::cout << "Connected to the server. Type messages and press Enter.\n";
         
         send_first_message(socket);
         
         io.run();
     } catch (std::exception& e) {
-        std::cerr << "Excepción: " << e.what() << std::endl;
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 }

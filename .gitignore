@@ -34,3 +34,6 @@
 
 # Files
 bin/
+
+#others
+*.vscode

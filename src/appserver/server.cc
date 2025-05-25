@@ -7,57 +7,63 @@ void handle_signal(const asio::error_code& error, int signal_number) {
     }
 }
 
-void handle_client(std::shared_ptr<tcp::socket> socket) {
+void handle_client(std::shared_ptr<tcp::socket> socket, int client_id) {
     auto buffer = std::make_shared<asio::streambuf>();
-    std::cout << "[Servidor] Esperando mensaje del cliente..." << std::endl;
+    std::cout << "[Server] Client #" << client_id << " - Waiting message..." << std::endl;
     
     asio::async_read_until(*socket, *buffer, '\n',
-        [socket, buffer](const asio::error_code& ec, std::size_t length) {
-            on_read(socket, buffer, ec, length);
+        [socket, buffer, client_id](const asio::error_code& ec, std::size_t length) {
+            on_read(socket, buffer, ec, length, client_id);
         });
 }
 
 void on_read(std::shared_ptr<tcp::socket> socket, std::shared_ptr<asio::streambuf> buffer,
-             const asio::error_code& ec, std::size_t length) {
+             const asio::error_code& ec, std::size_t length, int client_id) {
     if (!ec) {
         std::istream is(buffer.get());
         std::string mensaje;
         std::getline(is, mensaje);
         
-        std::cout << "[Servidor] Recibido mensaje (" << length << " bytes): '" << mensaje << "'" << std::endl;
+        std::cout << "[Server] Client #" << client_id << " sent (" << length << " bytes): '" << mensaje << "'" << std::endl;
         
-        std::string respuesta = "Que paso\n";
-        std::cout << "[Servidor] Enviando respuesta..." << std::endl;
+        std::string respuesta = "Hello Client #" + std::to_string(client_id) + "!\n";
+        std::cout << "[Server] Sending response #" << client_id << "..." << std::endl;
         
         asio::async_write(*socket, asio::buffer(respuesta),
-            [socket](const asio::error_code& ec, std::size_t length) {
-                on_write(socket, ec, length);
+            [socket, client_id](const asio::error_code& ec, std::size_t length) {
+                on_write(socket, ec, length, client_id);
             });
     } else if (ec == asio::error::eof) {
-        std::cout << "[Servidor] Cliente desconectado" << std::endl;
+        std::cout << "[Server] Client #" << client_id << " was disconnected" << std::endl;
     } else {
-        std::cerr << "[Servidor] Error en lectura: " << ec.message() << std::endl;
+        std::cerr << "[Server] Client #" << client_id << " - Error while reading: " << ec.message() << std::endl;
     }
 }
 
-void on_write(std::shared_ptr<tcp::socket> socket, const asio::error_code& error_code, std::size_t /*length*/) {
+void on_write(std::shared_ptr<tcp::socket> socket, const asio::error_code& error_code, std::size_t /*length*/, int client_id) {
     if (!error_code) {
-        std::cout << "[Servidor] Respuesta enviada, esperando siguiente mensaje..." << std::endl;
-        handle_client(socket); // Continuar escuchando más mensajes
+        std::cout << "[Server] Client #" << client_id << " - Response sending, waiting next message..." << std::endl;
+        handle_client(socket, client_id);
     } else {
-        std::cerr << "[Servidor] Error enviando respuesta: " << error_code.message() << std::endl;
+        std::cerr << "[Server] Client #" << client_id << " - Error while sending response: " << error_code.message() << std::endl;
     }
 }
 
 void on_accept(std::shared_ptr<tcp::socket> socket, tcp::acceptor& acceptor, const asio::error_code& error_code) {
     if (!error_code) {
-        std::cout << "[INFO] Nueva conexión establecida" << std::endl;
-        handle_client(socket); // Comenzar a manejar este cliente
+        int client_id = ++connection_counter;
+        
+        auto remote_endpoint = socket->remote_endpoint();
+        std::cout << "[INFO] New connection #" << client_id 
+                  << " from " << remote_endpoint.address().to_string() 
+                  << ":" << remote_endpoint.port() << std::endl;
+        
+        handle_client(socket, client_id);
     } else {
-        std::cerr << "[ERROR] Error aceptando conexión: " << error_code.message() << std::endl;
+        std::cerr << "[ERROR] Error accepting connection: " << error_code.message() << std::endl;
     }
     
-    start_accept(acceptor); // Continuar aceptando nuevas conexiones
+    start_accept(acceptor);
 }
 
 void start_accept(tcp::acceptor& acceptor) {

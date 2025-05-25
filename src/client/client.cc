@@ -9,46 +9,51 @@ void do_write(std::shared_ptr<tcp::socket> socket, const std::string& message) {
 
 void on_write(std::shared_ptr<tcp::socket> socket, const asio::error_code& ec, std::size_t /*length*/) {
     if (!ec) {
-        std::cout << "[Cliente] Mensaje enviado, esperando respuesta..." << std::endl;
+        std::cout << "[Client] Message sent, awaiting reply..." << std::endl;
         do_read(socket); // Después de enviar, espera la respuesta
     } else {
-        std::cerr << "Error escribiendo: " << ec.message() << std::endl;
+        std::cerr << "Error on_write: " << ec.message() << std::endl;
     }
 }
 
 void do_read(std::shared_ptr<tcp::socket> socket) {
-    auto buffer = std::make_shared<std::array<char, 1024>>();
-    socket->async_read_some(asio::buffer(*buffer),
+    auto buffer = std::make_shared<asio::streambuf>();
+    asio::async_read_until(*socket, *buffer, '\n',
         [socket, buffer](const asio::error_code& ec, std::size_t length) {
             on_read(socket, buffer, ec, length);
         });
 }
 
-void on_read(std::shared_ptr<tcp::socket> socket, std::shared_ptr<std::array<char, 1024>> buffer,
+void on_read(std::shared_ptr<tcp::socket> socket, std::shared_ptr<asio::streambuf> buffer,
              const asio::error_code& ec, std::size_t length) {
     if (!ec) {
-        std::string respuesta(buffer->data(), length);
-        std::cout << "[Cliente] Recibido del servidor: '" << respuesta << "'" << std::endl;
+        std::istream is(buffer.get());
+        std::string response;
+        std::getline(is, response);
+        
+        std::cout << "[Client] Server response (" << length << " bytes): '" << response << "'" << std::endl;
         
         // Solicitar nuevo mensaje al usuario
-        std::string mensaje;
-        std::cout << "Tu mensaje: ";
-        std::getline(std::cin, mensaje);
-        mensaje += '\n';
+        std::string message;
+        std::cout << "Write a message: ";
+        std::getline(std::cin, message);
         
-        do_write(socket, mensaje);
+        message += '\n';
+        do_write(socket, message);
+    } else if (ec == asio::error::eof) {
+        std::cout << "[Client] Server closed connection" << std::endl;
     } else {
-        std::cerr << "Error leyendo: " << ec.message() << std::endl;
+        std::cerr << "[Client] Error on_read: " << ec.message() << std::endl;
     }
 }
 
 void send_first_message(std::shared_ptr<tcp::socket> socket) {
-    std::string mensaje;
-    std::cout << "Tu mensaje: ";
-    std::getline(std::cin, mensaje);
-    mensaje += '\n';
+    std::string message;
+    std::cout << "Wirite a message: ";
+    std::getline(std::cin, message);
+    message += '\n';
     
-    do_write(socket, mensaje);
+    do_write(socket, message);
 }
 
 int main() {

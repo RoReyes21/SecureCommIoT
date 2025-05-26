@@ -5,11 +5,14 @@
 #include <iostream>
 #include <memory>
 #include <csignal>
+#include <nlohmann/json.hpp>
 
 using asio::ip::tcp;
 asio::io_context io;
 std::atomic<int> connection_counter{0};
 extern std::atomic<int> connection_counter;
+
+using json = nlohmann::json;
 
 void handle_signal(const asio::error_code& error, int signal_number);
 void handle_client(std::shared_ptr<tcp::socket> socket, int client_id);

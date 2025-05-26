@@ -44,8 +44,8 @@ def run_client():
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
 
-    choice = input("Do you want to compile the client? (y/n) ").lower()
-    if choice == 'y':
+    option = input("Do you want to compile the client? (y/n) ").lower()
+    if option == 'y':
         compile_client()
     elif option != 'n':
         print("Invalid option, bye :(")

@@ -6,3 +6,4 @@ Libraries
 libboost-dev
 libboost-system-dev
 nlohmann-json3-dev
+libsodium-dev

@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include "messages.h"
+
 asio::io_context io;
 
 void handle_signal(const asio::error_code& error, int signal_number) {
@@ -7,6 +9,57 @@ void handle_signal(const asio::error_code& error, int signal_number) {
         std::cout << "[INFO] Signal " << signal_number << " received, stopping server...\n";
         io.stop();
     }
+}
+
+void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp::socket> socket, int client_id) {
+
+    std::size_t fin_pos = message.find(END_OF_MESSAGE);
+    if (fin_pos == std::string::npos) {
+        std::cerr << "[ERROR]: The " << END_OF_MESSAGE << " delimiter was not found in the response." << "\n";
+        return;
+    }
+
+    std::string json_message = message.substr(0, fin_pos);
+    json data;
+
+    try {
+        data = json::parse(json_message);
+    } catch (json::parse_error& e) {
+        std::cerr << "[ERROR] Json could not be parsed: " << e.what() << "\n";
+    }
+
+    std::string response;
+
+    if (data["method"] == "HelloFIUNAM") {
+        std::cout << "[Server] Client #" << client_id << " - Received of a request to establish a secure connection\n";
+        // ToDo, verify data, validate all
+        response = get_whats_up_message("12345", get_nounce()); // ToDo, replace with actual server ID, send only hash
+    }
+    else if (data["method"] == "AgreeParams") {
+        std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
+        // ToDo, verify data, validate all
+        response = get_start_secure_conversartion_message("symmetric_key_example", "ok", get_nounce()); // ToDo, replace with symmetric key for this client ID, etc.
+    }
+    else if (data["method"] == "simple_message") {
+        std::cout << "[Server] Client #" << client_id << " - Received simple message: " << data["message"] << "\n";
+        response = get_simple_response();
+    }
+    else {
+        std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";
+    }
+
+    if (response.empty())
+        return;
+
+    asio::async_write(*socket, asio::buffer(response),
+        [this, socket, client_id, response](const asio::error_code& ec, std::size_t /*length*/) {
+            if (!ec) {
+                std::cout << "[Server] Client #" << client_id << " - Response sent: " << response << "\n";
+                handle_client(socket, client_id);
+            } else {
+                std::cerr << "[Server] Client #" << client_id << " - Write error: " << ec.message() << "\n";
+            }
+        });
 }
 
 void Server::start_accept() {
@@ -38,17 +91,8 @@ void Server::handle_client(std::shared_ptr<tcp::socket> socket, int client_id) {
                     std::getline(is, message);
                     std::cout << "[Server] Client #" << client_id << " - Received: '" << message << "'\n";
 
-                    std::string response = "msg_response";
-                    response += END_OF_MESSAGE;
-                    asio::async_write(*socket, asio::buffer(response),
-                        [this, socket, client_id, response](const asio::error_code& ec, std::size_t /*length*/) {
-                            if (!ec) {
-                                std::cout << "[Server] Client #" << client_id << " - Response sent: " << response << "\n";
-                                handle_client(socket, client_id);
-                            } else {
-                                std::cerr << "[Server] Client #" << client_id << " - Write error: " << ec.message() << "\n";
-                            }
-                        });
+                    manage_message_from_client(message, socket, client_id);
+
                 } else if (ec == asio::error::eof) {
                     std::cout << "[Server] Client #" << client_id << " disconnected\n";
                 } else {

@@ -18,9 +18,9 @@ def compile_client():
 
     compile_cmd = ""
     if system == "Linux":
-        compile_cmd = f"g++ src/client/client.cc src/encryption/data_encryp.cc -Iasio/include -pthread -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc -Iasio/include -pthread -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/client/client.cc src/encryption/data_encryp.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc -Iasio/include -o {binary}"
     else:
         print("Operative system is not supported.")
         return

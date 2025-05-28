@@ -1,0 +1,37 @@
+#ifndef MESSAGES_H
+#define MESSAGES_H
+
+#include <string>
+#include <nlohmann/json.hpp>
+#include "../common/common.h"
+
+using Json = nlohmann::json;
+
+std::string get_whats_up_message(std::string device_id, int nounce) {
+    Json whats_msg = {
+        {"method", "WhatsUpFIUNAM"},
+        {"server_ID", device_id},
+        {"nounce", nounce}
+        //{"signature", "signature"} // TODO: check how to sign signature
+    };
+    return whats_msg.dump() + END_OF_MESSAGE;
+}
+
+std::string get_start_secure_conversartion_message(std::string symetric_key, std::string is_ok, int nounce) {
+    Json start_message = {
+        {"method", "StartConversation"},
+        {"OK", is_ok},
+        {"symetric_key", symetric_key},
+        {"nounce", nounce}
+    };
+    return start_message.dump() + END_OF_MESSAGE;
+}
+
+std::string get_simple_response() {
+    Json simple_msg = {
+        {"method", "conn_continue"}
+    };
+    return simple_msg.dump() + END_OF_MESSAGE;
+}
+
+#endif // MESSAGES_H

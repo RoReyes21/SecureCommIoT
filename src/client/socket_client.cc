@@ -15,7 +15,7 @@ SocketClient::SocketClient(const std::string& host, const std::string& port) : i
 void SocketClient::send_message(const std::string& message) {
     try {
         asio::write(socket_, asio::buffer(message));
-        std::cout << "[Socket] Sent: " << message << "\n";
+        std::cout << "[Socket] Sent to server: " << message << "\n";
     } catch (const std::exception& e) {
         std::cerr << "[Socket] Send error: " << e.what() << "\n";
     }
@@ -27,5 +27,6 @@ std::string SocketClient::receive_message() {
     std::istream is(&buffer);
     std::string line;
     std::getline(is, line);
+    std::cout << "[Socket] Receive message from server: " << line << "\n";
     return line;
 }

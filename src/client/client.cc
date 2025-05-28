@@ -36,7 +36,7 @@ bool is_valid_response_from_server(std::string response) {
         is_valid = true;
     }
     else if (data["method"] == "StartConversation") {
-        std::cout << "[Client] Server agreed to the parameters. Started encrypted conversation" << "\n";
+        std::cout << "[Client] Server agreed to the parameters" << "\n";
         std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
         std::cout << "Server nounce: " << data["nounce"] << "\n";
         //ToDo, save symetric key, etc. verify all parameters
@@ -59,13 +59,17 @@ bool Client::establish_secure_connection_with_server() {
     send_message(message);
 
     response = receive_message();
-    //ToDo, check if hello_response is valid
+    if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
+        return false;
 
     message = get_agree_params_message("public_key", "P_256", get_nounce()); // ToDo, replace with real public key and algorithm
     send_message(message);
 
     response = receive_message();
-    //ToDo, check if hello_response is valid
+    if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
+        return false;
+
+    std::cout << "[Client] Encrypted connection established with server" << "\n";
 
     return true;
 }
@@ -87,6 +91,11 @@ int main() {
 
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";
+
+        if (!is_valid_response_from_server(response)) {
+            std::cerr << "[ERROR] Invalid response from server." << "\n";
+            break;
+        }
     }
 
     client.stop_socket();

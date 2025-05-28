@@ -1,30 +1,17 @@
 #include "client.h"
 
 #include "../common/common.h"
-
-int get_nounce() { // ToDo, replace with random nounce
-    static int nounce = 0;
-    return ++nounce;
-}
-
-std::string get_agree_params_msg() {
-    json agree_params = {
-        {"method", "AgreeParams"},
-        {"public_key", 12345}, // ToDo, replace with real public key
-        {"algorithm", "P_256"},
-        {"nounce", get_nounce()}
-    };
-    return agree_params.dump() + END_OF_MESSAGE;
-}
+#include "messages.h"
 
 /**
- * @brief Manage the response from the server.
+ * @brief The function checks if the response from the server is valid, checks the method and parameters, save de important parameters for communication.
  * 
  * @param response 
- * @return std::string If the response is valid, return the next message to send to the server. Else, return an empty string.
+ * @return true If the response is valid, 
+ * @return false If the response is not valid
  */
-void manage_response_from_server(std::shared_ptr<tcp::socket> socket, std::string response) {
-    std::string msg_to_server;
+bool is_valid_response_from_server(std::string response) {
+    bool is_valid = false;
 
     std::size_t fin_pos = response.find(END_OF_MESSAGE);
     if (fin_pos == std::string::npos) {
@@ -41,74 +28,66 @@ void manage_response_from_server(std::shared_ptr<tcp::socket> socket, std::strin
     }
 
     if (data["method"] == "WhatsUpFIUNAM") {
-
         std::cout << "Server ID: " << data["server_ID"] << "\n";
         std::cout << "Server nounce: " << data["nounce"] << "\n";
         //std::cout << "Signature: " << data["signature"] << "\n";
-        // ToDo, verify signature
-        msg_to_server = get_agree_params_msg();
+        // ToDo, verify signature, verify all parameters
+        is_valid = true;
     }
     else if (data["method"] == "StartConversation") {
-        std::cout << "[Client] Server agreed to the parameters." << "\n";
+        std::cout << "[Client] Server agreed to the parameters. Started encrypted conversation" << "\n";
         std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
         std::cout << "Server nounce: " << data["nounce"] << "\n";
-        //ToDo, save symetric key, etc.
-        std::cout << "Wirite a message: ";
-        std::getline(std::cin, msg_to_server);
-        msg_to_server += END_OF_MESSAGE;
+        //ToDo, save symetric key, etc. verify all parameters
+        is_valid = true;
     }
     else if (data["method"] == "conn_continue") {
-        std::cout << "Wirite a message: ";
-        std::getline(std::cin, msg_to_server);
-        msg_to_server += END_OF_MESSAGE;
+        is_valid = true;
     }
+
+    return is_valid;
 }
 
-void send_first_message(std::shared_ptr<tcp::socket> socket) {
+bool Client::establish_secure_connection_with_server() {
 
-    json first_message = {
-        {"method", "HelloFIUNAM"},
-        {"device_ID", 12345}, // ToDo, replace with actual device ID, send only hash
-        {"nounce", get_nounce()}
-        //{"signature", "signature"}
-    };
+    std::string message, response;
 
-    std::string message = first_message.dump() + END_OF_MESSAGE;
-    
+    std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
+
+    message = get_hello_message("12345", get_nounce()); // ToDo, replace with actual device ID, send only hash
+    send_message(message);
+
+    response = receive_message();
+    //ToDo, check if hello_response is valid
+
+    message = get_agree_params_message("public_key", "P_256", get_nounce()); // ToDo, replace with real public key and algorithm
+    send_message(message);
+
+    response = receive_message();
+    //ToDo, check if hello_response is valid
+
+    return true;
 }
 
 int main() {
-    SocketClient client("127.0.0.1", "8080");
+    Client client("127.0.0.1", "8080");
 
-    std::thread io_thread([&client]() {
-        client.run();
-    });
-
-    json first_message = {
-        {"method", "HelloFIUNAM"},
-        {"device_ID", 12345}, // ToDo, replace with actual device ID, send only hash
-        {"nounce", 12345}
-        //{"signature", "signature"}
-    };
-
-    std::string message = first_message.dump() + END_OF_MESSAGE;
-    client.send_message(message);
-
-    std::string response = client.receive_message();
-    std::cout << "[Client] Received response: " << response << "\n";
+    if (!client.establish_secure_connection_with_server()) {
+        std::cerr << "[ERROR] Could not establish a secure connection with server." << "\n";
+        return 1;
+    }
 
     while (true) {
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 
-        client.send_message(msg_to_server + END_OF_MESSAGE);
+        client.send_message(get_simple_message(msg_to_server + END_OF_MESSAGE));
 
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";
     }
 
-    client.stop();
-    io_thread.join();
+    client.stop_socket();
 
     return 0;
 }

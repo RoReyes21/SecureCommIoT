@@ -79,10 +79,11 @@ int main() {
     }
 
     while (true) {
+        std::cout << "[Client][Input] Write simple message: ";
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 
-        client.send_message(get_simple_message(msg_to_server + END_OF_MESSAGE));
+        client.send_message(get_simple_message(msg_to_server));
 
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";

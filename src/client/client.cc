@@ -62,60 +62,6 @@ void manage_response_from_server(std::shared_ptr<tcp::socket> socket, std::strin
         std::getline(std::cin, msg_to_server);
         msg_to_server += END_OF_MESSAGE;
     }
-
-    if (msg_to_server.empty())
-        io.stop();
-    else
-        std::cout << "[Client] Sending message to server: '" << msg_to_server << "'" << "\n";
-        do_write(socket, msg_to_server);
-
-    return;
-}
-
-void do_write(std::shared_ptr<tcp::socket> socket, const std::string& message) {
-    std::cout << "[Client] Sending message: '" << message << "'" << "\n";
-    asio::async_write(*socket, asio::buffer(message),
-        [socket](const asio::error_code& ec, std::size_t length) {
-            on_write(socket, ec, length);
-        });
-}
-
-void on_write(std::shared_ptr<tcp::socket> socket, const asio::error_code& ec, std::size_t /*length*/) {
-    if (!ec) {
-        std::cout << "[Client] Message sent, awaiting reply..." << "\n";
-        do_read(socket);
-    } else {
-        std::cerr << "Error on_write: " << ec.message() << "\n";
-    }
-}
-
-void do_read(std::shared_ptr<tcp::socket> socket) {
-    auto buffer = std::make_shared<asio::streambuf>();
-    asio::async_read_until(*socket, *buffer, END_OF_MESSAGE,
-        [socket, buffer](const asio::error_code& ec, std::size_t length) {
-            on_read(socket, buffer, ec, length);
-        });
-}
-
-void on_read(std::shared_ptr<tcp::socket> socket, std::shared_ptr<asio::streambuf> buffer,
-             const asio::error_code& error_code, std::size_t length) {
-    if (!error_code) {
-        response_counter++;
-        std::istream is(buffer.get());
-        std::string response;
-        std::getline(is, response);
-        
-        std::cout << "[Client] Server response (" << length << " bytes): '" << response << "'" << "\n";
-        
-        std::string message;
-
-        manage_response_from_server(socket, response);
-
-    } else if (error_code == asio::error::eof) {
-        std::cout << "[Client] Server closed connection" << "\n";
-    } else {
-        std::cerr << "[Client] Error on_read: " << error_code.message() << "\n";
-    }
 }
 
 void send_first_message(std::shared_ptr<tcp::socket> socket) {
@@ -129,23 +75,40 @@ void send_first_message(std::shared_ptr<tcp::socket> socket) {
 
     std::string message = first_message.dump() + END_OF_MESSAGE;
     
-    do_write(socket, message);
 }
 
 int main() {
-    try {
-        tcp::resolver resolver(io);
-        auto endpoints = resolver.resolve("127.0.0.1", "8080");
-        
-        auto socket = std::make_shared<tcp::socket>(io);
-        asio::connect(*socket, endpoints);
-        
-        std::cout << "Connected to the server\n";
-        
-        send_first_message(socket);
-        
-        io.run();
-    } catch (std::exception& e) {
-        std::cerr << "Exception: " << e.what() << "\n";
+    SocketClient client("127.0.0.1", "8080");
+
+    std::thread io_thread([&client]() {
+        client.run();
+    });
+
+    json first_message = {
+        {"method", "HelloFIUNAM"},
+        {"device_ID", 12345}, // ToDo, replace with actual device ID, send only hash
+        {"nounce", 12345}
+        //{"signature", "signature"}
+    };
+
+    std::string message = first_message.dump() + END_OF_MESSAGE;
+    client.send_message(message);
+
+    std::string response = client.receive_message();
+    std::cout << "[Client] Received response: " << response << "\n";
+
+    while (true) {
+        std::string msg_to_server;
+        std::getline(std::cin, msg_to_server);
+
+        client.send_message(msg_to_server + END_OF_MESSAGE);
+
+        std::string response = client.receive_message();
+        std::cout << "[Client] Received response: " << response << "\n";
     }
+
+    client.stop();
+    io_thread.join();
+
+    return 0;
 }

@@ -15,7 +15,7 @@ SocketClient::SocketClient(const std::string& host, const std::string& port) : i
 void SocketClient::send_message(const std::string& message) {
     try {
         asio::write(socket_, asio::buffer(message));
-        std::cout << "[Client] Sent: " << message << "\n";
+        std::cout << "[Socket] Sent: " << message << "\n";
     } catch (const std::exception& e) {
         std::cerr << "[Socket] Send error: " << e.what() << "\n";
     }

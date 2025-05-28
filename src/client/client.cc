@@ -16,7 +16,7 @@ bool is_valid_response_from_server(std::string response) {
     std::size_t fin_pos = response.find(END_OF_MESSAGE);
     if (fin_pos == std::string::npos) {
         std::cerr << "[ERROR]: The " << END_OF_MESSAGE << " delimiter was not found in the response." << "\n";
-        return;
+        return is_valid;
     }
 
     std::string json_response = response.substr(0, fin_pos);
@@ -25,6 +25,7 @@ bool is_valid_response_from_server(std::string response) {
         data = json::parse(json_response);
     } catch (json::parse_error& e) {
         std::cerr << "[ERROR] Json could not be parsed: " << e.what() << "\n";
+        return is_valid;
     }
 
     if (data["method"] == "WhatsUpFIUNAM") {

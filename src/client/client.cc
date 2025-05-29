@@ -60,6 +60,8 @@ bool Client::is_valid_response_from_server(std::string response) {
         is_valid = true;
     }
     else if (data["method"] == "conn_continue") {
+        std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+        std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
         is_valid = true;
     }
 
@@ -112,7 +114,7 @@ int main() {
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-        client.send_message(get_simple_message(string_cipher_text, string_nonce));
+        client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
 
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";

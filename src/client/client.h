@@ -23,6 +23,8 @@ public:
     void send_message(const std::string& message) { socket_client.send_message(message); }
     std::string receive_message() { return socket_client.receive_message(); }
     bool establish_secure_connection_with_server();
+    bool is_valid_response_from_server(std::string response);
+    bool validate_signature(json data);
     int get_nounce() { return nounce++; }
 
 private:
@@ -30,6 +32,7 @@ private:
     std::thread io_thread;
     int nounce = 0;
     SessionKeysAsymetric session_keys_asymetric;
+    SessionKeySymetric session_keys_symetric;   
 };
 
 

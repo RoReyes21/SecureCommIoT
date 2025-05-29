@@ -4,6 +4,25 @@
 #include "../utils/convert_data.h"
 #include "messages.h"
 
+bool Client::validate_signature(json data) {
+
+    std::vector<unsigned char> signature_bin = hex_string_to_bin(data["signature_hex"]);
+    std::vector<unsigned char> public_key_bin = hex_string_to_bin(data["public_key_hex"]);
+    std::vector<unsigned char> long_term_public_key_bin = hex_string_to_bin(data["long_term_public_key_hex"]);
+
+    if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
+        std::cerr << "[Error] Invalid signature from Server" << "\n";
+        return false;
+    }
+
+    SessionKeySymetric skeysim(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, false);
+    session_keys_symetric = skeysim;
+
+    std::cout << "[Server] Validated signature from Server" << "\n";
+
+    return true;
+}
+
 /**
  * @brief The function checks if the response from the server is valid, checks the method and parameters, save de important parameters for communication.
  * 
@@ -11,7 +30,7 @@
  * @return true If the response is valid, 
  * @return false If the response is not valid
  */
-bool is_valid_response_from_server(std::string response) {
+bool Client::is_valid_response_from_server(std::string response) {
     bool is_valid = false;
 
     std::size_t fin_pos = response.find(END_OF_MESSAGE);
@@ -30,11 +49,8 @@ bool is_valid_response_from_server(std::string response) {
     }
 
     if (data["method"] == "WhatsUpFIUNAM") {
-        std::cout << "Server ID: " << data["server_ID"] << "\n";
-        std::cout << "Server nounce: " << data["nounce"] << "\n";
-        //std::cout << "Signature: " << data["signature"] << "\n";
-        // ToDo, verify signature, verify all parameters
-        is_valid = true;
+        if (validate_signature(data))
+            is_valid = true;
     }
     else if (data["method"] == "StartConversation") {
         std::cout << "[Client] Server agreed to the parameters" << "\n";
@@ -96,7 +112,7 @@ int main() {
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";
 
-        if (!is_valid_response_from_server(response)) {
+        if (!client.is_valid_response_from_server(response)) {
             std::cerr << "[ERROR] Invalid response from server." << "\n";
             break;
         }

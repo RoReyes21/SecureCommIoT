@@ -21,10 +21,9 @@ std::string get_hello_message(std::string device_id, int nounce, std::string pub
     return hello_msg.dump() + END_OF_MESSAGE;
 }
 
-std::string get_agree_params_message(std::string public_key, std::string algorithm, int nounce) {
+std::string get_agree_params_message(std::string algorithm, int nounce) {
     Json agree_params = {
         {"method", "AgreeParams"},
-        {"public_key", public_key},
         {"algorithm", algorithm},
         {"nounce", nounce}
     };

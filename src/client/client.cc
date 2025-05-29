@@ -66,7 +66,7 @@ bool Client::establish_secure_connection_with_server() {
     if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
         return false;
 
-    message = get_agree_params_message("public_key", "P_256", get_nounce()); // ToDo, replace with real public key and algorithm
+    message = get_agree_params_message("ChaCha20", get_nounce());
     send_message(message);
 
     response = receive_message();

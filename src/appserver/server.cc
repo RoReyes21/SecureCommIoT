@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include "messages.h"
+#include "../utils/convert_data.h"
 
 asio::io_context io;
 
@@ -9,6 +10,28 @@ void handle_signal(const asio::error_code& error, int signal_number) {
         std::cout << "[INFO] Signal " << signal_number << " received, stopping server...\n";
         io.stop();
     }
+}
+
+bool Server::validate_signature(int client_id, json data) {
+
+    std::vector<unsigned char> signature_bin = hex_string_to_bin(data["signature_hex"]);
+    std::vector<unsigned char> public_key_bin = hex_string_to_bin(data["public_key_hex"]);
+    std::vector<unsigned char> long_term_public_key_bin = hex_string_to_bin(data["long_term_public_key_hex"]);
+
+    if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
+        std::cerr << "[Error] Invalid signature from Client #" << client_id << "\n";
+        client_sockets[client_id]->close();
+        client_sockets.erase(client_id);
+        return false;
+    }
+
+    SessionKeysAsymetric session_keys_asymetric;
+    session_keys_asymetric_map.insert({client_id, session_keys_asymetric});
+    session_keys_symetric_map.insert({client_id, SessionKeySymetric(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin)}); 
+
+    std::cout << "[Server] Validated signature from Client #" << client_id << "\n";
+
+    return true;
 }
 
 void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp::socket> socket, int client_id) {
@@ -32,8 +55,14 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
 
     if (data["method"] == "HelloFIUNAM") {
         std::cout << "[Server] Client #" << client_id << " - Received of a request to establish a secure connection\n";
-        // ToDo, verify data, validate all
-        response = get_whats_up_message("12345", get_nounce()); // ToDo, replace with actual server ID, send only hash
+
+        if (!validate_signature(client_id, data))
+            return;        
+
+        // ToDo, replace with actual server ID, send only hash
+        response = get_whats_up_message("12345", get_nounce(), bin_to_hex_string(session_keys_asymetric_map[client_id].public_key, crypto_kx_PUBLICKEYBYTES),
+                                bin_to_hex_string(session_keys_asymetric_map[client_id].long_term_public_key, crypto_sign_PUBLICKEYBYTES),
+                                bin_to_hex_string(session_keys_asymetric_map[client_id].signature, crypto_sign_BYTES));
     }
     else if (data["method"] == "AgreeParams") {
         std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
@@ -90,6 +119,7 @@ void Server::handle_client(std::shared_ptr<tcp::socket> socket, int client_id) {
                     std::string message;
                     std::getline(is, message);
                     std::cout << "[Server] Client #" << client_id << " - Received: '" << message << "'\n";
+                    client_sockets.insert({client_id, socket});
 
                     manage_message_from_client(message, socket, client_id);
 

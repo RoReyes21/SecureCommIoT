@@ -21,7 +21,7 @@ bool Server::validate_signature(int client_id, json data) {
     if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
         std::cerr << "[Error] Invalid signature from Client #" << client_id << "\n";
         client_sockets[client_id]->close();
-        client_sockets.erase(client_id);
+        client_sockets.erase(client_id); //Todo, handle this better
         return false;
     }
 
@@ -66,8 +66,14 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
     }
     else if (data["method"] == "AgreeParams") {
         std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
-        // ToDo, verify data, validate all
-        response = get_start_secure_conversartion_message("symmetric_key_example", "ok", get_nounce()); // ToDo, replace with symmetric key for this client ID, etc.
+
+        if (data["algorithm"] == "ChaCha20") // ToDo, create a variable with the supported algorithms
+            response = get_start_secure_conversartion_message("ok", get_nounce());
+        else {
+            client_sockets[client_id]->close();
+            client_sockets.erase(client_id); //ToDo, handle this better
+            std::cout << "[Server] Client #" << client_id << " - Closed connection due to unsupported algorithm: " << data["algorithm"] <<" \n";
+        }
     }
     else if (data["method"] == "simple_message") {
         std::cout << "[Server] Client #" << client_id << " - Received simple message: " << data["message"] << "\n";

@@ -6,6 +6,7 @@ Libraries
 libboost-dev
 libboost-system-dev
 libboost-all-dev
+I think is only this:
 libasio-dev
 nlohmann-json3-dev
 libsodium-dev

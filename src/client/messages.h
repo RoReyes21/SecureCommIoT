@@ -30,10 +30,11 @@ std::string get_agree_params_message(std::string algorithm, int nounce) {
     return agree_params.dump() + END_OF_MESSAGE;
 }
 
-std::string get_simple_message(std::string message) {
+std::string get_simple_message(std::string message, std::string nounce) {
     Json simple_msg = {
         {"method", "simple_message"},
-        {"message", message}
+        {"message", message},
+        {"nounce", nounce}
     };
     return simple_msg.dump() + END_OF_MESSAGE;
 }

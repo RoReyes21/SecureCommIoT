@@ -107,7 +107,12 @@ int main() {
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 
-        client.send_message(get_simple_message(msg_to_server));
+        std::vector<unsigned char> nonce;
+        std::vector<unsigned char> ciphertext = encrypt_message(client.get_session_keys_symetric().tx, msg_to_server, nonce);
+
+        std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
+        std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
+        client.send_message(get_simple_message(string_cipher_text, string_nonce));
 
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";

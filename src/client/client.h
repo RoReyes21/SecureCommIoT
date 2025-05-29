@@ -26,6 +26,9 @@ public:
     bool is_valid_response_from_server(std::string response);
     bool validate_signature(json data);
     int get_nounce() { return nounce++; }
+    SessionKeysSymetric get_session_keys_symetric() {
+        return session_keys_symetric;
+    }
 
 private:
     SocketClient socket_client;

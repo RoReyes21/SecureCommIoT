@@ -10,8 +10,18 @@ def signal_handler(sig, frame):
 
 def compile_client():
     system = platform.system()
-    bin_dir = "bin/linux" if system == "Linux" else "bin/windows"
-    binary = os.path.join(bin_dir, "client" if system == "Linux" else "client.exe")
+    if system == "Linux":
+        bin_dir = "bin/linux"
+        binary = os.path.join(bin_dir, "client")
+    elif system == "Windows":
+        bin_dir = "bin/windows"
+        binary = os.path.join(bin_dir, "client.exe")
+    elif system == "Darwin":  # macOS
+        bin_dir = "bin/macos"
+        binary = os.path.join(bin_dir, "client")
+    else:
+        print("Operative system is not supported.")
+        return
 
     if not os.path.exists(bin_dir):
         os.makedirs(bin_dir)
@@ -20,10 +30,9 @@ def compile_client():
     if system == "Linux":
         compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -pthread -lsodium -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc -Iasio/include -o {binary}"
-    else:
-        print("Operative system is not supported.")
-        return
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -o {binary}"
+    elif system == "Darwin":  # macOS
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
 
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)
@@ -32,7 +41,15 @@ def compile_client():
 
 def run_client():
     system = platform.system()
-    bin_path = "bin/linux/client" if system == "Linux" else "bin/windows/client.exe"
+    if system == "Linux":
+        bin_path = "bin/linux/client"
+    elif system == "Windows":
+        bin_path = "bin/windows/client.exe"
+    elif system == "Darwin":  # macOS
+        bin_path = "bin/macos/client"
+    else:
+        print("Operative system is not supported.")
+        return
 
     if not os.path.exists(bin_path):
         print("The binary was not found. Run the compilation first")

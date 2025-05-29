@@ -7,6 +7,7 @@
 #include <chrono>
 
 #include "socket_client.h"
+#include "../encryption/data_encryp.h"
 
 class Client {
 public:
@@ -28,6 +29,7 @@ private:
     SocketClient socket_client;
     std::thread io_thread;
     int nounce = 0;
+    SessionKeysAsymetric session_keys_asymetric;
 };
 
 

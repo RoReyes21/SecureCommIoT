@@ -1,6 +1,7 @@
 #include "client.h"
 
 #include "../common/common.h"
+#include "../utils/convert_data.h"
 #include "messages.h"
 
 /**
@@ -55,7 +56,10 @@ bool Client::establish_secure_connection_with_server() {
 
     std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
 
-    message = get_hello_message("12345", get_nounce()); // ToDo, replace with actual device ID, send only hash
+    // ToDo, replace with actual device ID, send only hash
+    message = get_hello_message("12345", get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+                                bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
+                                bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
     send_message(message);
 
     response = receive_message();

@@ -23,3 +23,39 @@ std::vector<unsigned char> hex_string_to_bin(const std::string& hex_str) {
 
     return bin;
 }
+
+std::vector<unsigned char> encrypt_message(const std::vector<unsigned char>& tx_key, const std::string& message, std::vector<unsigned char>& nonce_out) {
+    
+    nonce_out.resize(crypto_aead_chacha20poly1305_IETF_NPUBBYTES);
+    randombytes_buf(nonce_out.data(), nonce_out.size());
+
+    std::vector<unsigned char> ciphertext(message.size() + crypto_aead_chacha20poly1305_IETF_ABYTES);
+
+    unsigned long long ciphertext_len;
+    crypto_aead_chacha20poly1305_ietf_encrypt(
+        ciphertext.data(), &ciphertext_len,
+        reinterpret_cast<const unsigned char*>(message.data()), message.size(),
+        nullptr, 0,
+        nullptr, nonce_out.data(), tx_key.data()
+    );
+
+    ciphertext.resize(ciphertext_len);
+    return ciphertext;
+}
+
+std::string decrypt_message(const std::vector<unsigned char>& rx_key, const std::vector<unsigned char>& ciphertext, const std::vector<unsigned char>& nonce) {
+    
+    std::vector<unsigned char> decrypted(ciphertext.size() - crypto_aead_chacha20poly1305_IETF_ABYTES);
+    unsigned long long decrypted_len;
+
+    if (crypto_aead_chacha20poly1305_ietf_decrypt(
+            decrypted.data(), &decrypted_len,
+            nullptr,
+            ciphertext.data(), ciphertext.size(),
+            nullptr, 0,
+            nonce.data(), rx_key.data()) != 0) {
+        throw std::runtime_error("[ERROR] Decryption failed: Invalid ciphertext or nonce.");
+    }
+
+    return std::string(decrypted.begin(), decrypted.end());
+}

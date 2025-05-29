@@ -22,14 +22,24 @@ public:
 class SessionKeySymetric
 {
 public:
-    SessionKeySymetric(const unsigned char* public_key, const unsigned char* private_key, const std::vector<unsigned char>& public_key_bin_other) 
+    SessionKeySymetric(const unsigned char* public_key, const unsigned char* private_key, const std::vector<unsigned char>& public_key_bin_other, bool is_server) 
     {
+        if (sodium_init() < 0) {
+            std::cerr << "libsodium init failed" << std::endl;
+        }
+
         rx.resize(crypto_kx_SESSIONKEYBYTES);
         tx.resize(crypto_kx_SESSIONKEYBYTES);
 
-        if (crypto_kx_server_session_keys(rx.data(), tx.data(), public_key, private_key, public_key_bin_other.data()) != 0)
-            std::cerr << "Error generando claves de sesión" << std::endl;
+        if (is_server) {
+            if (crypto_kx_server_session_keys(rx.data(), tx.data(), public_key, private_key, public_key_bin_other.data()) != 0)
+                std::cerr << "Error generando claves de sesión" << std::endl;
+        } else {
+            if (crypto_kx_client_session_keys(rx.data(), tx.data(), public_key, private_key, public_key_bin_other.data()) != 0)
+                std::cerr << "Error generando claves de sesión" << std::endl;
+        }
     }
+    SessionKeySymetric() {};
 
     std::vector<unsigned char> rx;
     std::vector<unsigned char> tx;

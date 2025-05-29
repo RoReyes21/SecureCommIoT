@@ -81,7 +81,14 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
 
         std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
         std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
-        response = get_simple_response();
+        
+        std::vector<unsigned char> nonce;
+        std::string hardcode_msg = "is_all_ok"; // ToDo, replace with a coherent message
+        std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce);
+        std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
+        std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
+
+        response = get_simple_response(string_cipher_text, string_nonce); //ToDo, encrypt the whole message
     }
     else {
         std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";

@@ -28,9 +28,11 @@ std::string get_start_secure_conversartion_message(std::string is_ok, int nounce
     return start_message.dump() + END_OF_MESSAGE;
 }
 
-std::string get_simple_response() {
+std::string get_simple_response(std::string message, std::string nounce) {
     Json simple_msg = {
-        {"method", "conn_continue"}
+        {"method", "conn_continue"},
+        {"message", message},
+        {"nounce", nounce}
     };
     return simple_msg.dump() + END_OF_MESSAGE;
 }

@@ -7,15 +7,22 @@
  */
 SessionKeysAsymetric::SessionKeysAsymetric() {
     if (sodium_init() < 0) {
-        std::cerr << "libsodium init failed" << std::endl;
+        std::cerr << "[Error] libsodium init failed" << std::endl;
     }
 
-    crypto_kx_keypair(public_key, secret_key);
+    crypto_sign_keypair(long_term_public_key, long_term_private_key);
+    crypto_kx_keypair(public_key, private_key);
+    crypto_sign_detached(signature, nullptr, public_key, sizeof(public_key), long_term_private_key);
+
+    if (crypto_sign_detached(signature, nullptr, public_key, sizeof(public_key), long_term_private_key) != 0) {
+        std::cerr << "[Error] Could not be signed" << std::endl;
+        return;
+    }
 }
 
 SessionKeysAsymetric::~SessionKeysAsymetric() {
     sodium_memzero(public_key, crypto_kx_PUBLICKEYBYTES);
-    sodium_memzero(secret_key, crypto_kx_SECRETKEYBYTES);
+    sodium_memzero(private_key, crypto_kx_SECRETKEYBYTES);
 }
 
 /**

@@ -10,9 +10,11 @@ public:
     SessionKeysAsymetric();
     ~SessionKeysAsymetric();
 
-private:
     unsigned char public_key[crypto_kx_PUBLICKEYBYTES];
-    unsigned char secret_key[crypto_kx_SECRETKEYBYTES];
+    unsigned char private_key[crypto_kx_SECRETKEYBYTES];
+    unsigned char signature[crypto_sign_BYTES];
+    unsigned char long_term_public_key[crypto_sign_PUBLICKEYBYTES];
+    unsigned char long_term_private_key[crypto_sign_SECRETKEYBYTES];
 };
 
 class SessionKeySymetric

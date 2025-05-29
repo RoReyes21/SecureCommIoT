@@ -18,7 +18,7 @@ def compile_server():
 
     compile_cmd = ""
     if system == "Linux":
-        compile_cmd = f"g++ src/appserver/server.cc -Iasio/include -pthread -o {binary}"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
     elif system == "Windows":
         compile_cmd = f"g++ src/appserver/server.cc -Iasio/include -o {binary}"
     else:

@@ -8,3 +8,4 @@ libboost-system-dev
 libboost-all-dev
 libasio-dev
 nlohmann-json3-dev
+libsodium-dev

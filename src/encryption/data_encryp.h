@@ -3,6 +3,8 @@
 
 #include <cstring>
 #include <sodium.h>
+#include <vector>
+#include <iostream>
 
 class SessionKeysAsymetric
 {
@@ -20,15 +22,17 @@ public:
 class SessionKeySymetric
 {
 public:
-    SessionKeySymetric();
-    SessionKeySymetric(char key[crypto_secretstream_xchacha20poly1305_KEYBYTES]) {
-        sodium_memzero(this->key, crypto_secretstream_xchacha20poly1305_KEYBYTES);
-        memcpy(this->key, key, crypto_secretstream_xchacha20poly1305_KEYBYTES);
-    }
-    ~SessionKeySymetric();
+    SessionKeySymetric(const unsigned char* public_key, const unsigned char* private_key, const std::vector<unsigned char>& public_key_bin_other) 
+    {
+        rx.resize(crypto_kx_SESSIONKEYBYTES);
+        tx.resize(crypto_kx_SESSIONKEYBYTES);
 
-private:
-    unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES];
+        if (crypto_kx_server_session_keys(rx.data(), tx.data(), public_key, private_key, public_key_bin_other.data()) != 0)
+            std::cerr << "Error generando claves de sesión" << std::endl;
+    }
+
+    std::vector<unsigned char> rx;
+    std::vector<unsigned char> tx;
 };
 
 #endif // DATA_ENCRYP_H

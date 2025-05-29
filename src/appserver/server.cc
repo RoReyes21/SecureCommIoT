@@ -27,7 +27,7 @@ bool Server::validate_signature(int client_id, json data) {
 
     SessionKeysAsymetric session_keys_asymetric;
     session_keys_asymetric_map.insert({client_id, session_keys_asymetric});
-    session_keys_symetric_map.insert({client_id, SessionKeySymetric(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, true)}); 
+    session_keys_symetric_map.insert({client_id, SessionKeysSymetric(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, true)}); 
 
     std::cout << "[Server] Validated signature from Client #" << client_id << "\n";
 

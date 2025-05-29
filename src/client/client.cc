@@ -15,7 +15,7 @@ bool Client::validate_signature(json data) {
         return false;
     }
 
-    SessionKeySymetric skeysim(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, false);
+    SessionKeysSymetric skeysim(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, false);
     session_keys_symetric = skeysim;
 
     std::cout << "[Server] Validated signature from Server" << "\n";

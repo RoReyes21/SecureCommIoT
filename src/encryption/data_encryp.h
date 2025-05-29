@@ -19,10 +19,10 @@ public:
     unsigned char long_term_private_key[crypto_sign_SECRETKEYBYTES];
 };
 
-class SessionKeySymetric
+class SessionKeysSymetric
 {
 public:
-    SessionKeySymetric(const unsigned char* public_key, const unsigned char* private_key, const std::vector<unsigned char>& public_key_bin_other, bool is_server) 
+    SessionKeysSymetric(const unsigned char* public_key, const unsigned char* private_key, const std::vector<unsigned char>& public_key_bin_other, bool is_server) 
     {
         if (sodium_init() < 0) {
             std::cerr << "libsodium init failed" << std::endl;
@@ -39,7 +39,7 @@ public:
                 std::cerr << "Error generando claves de sesión" << std::endl;
         }
     }
-    SessionKeySymetric() {};
+    SessionKeysSymetric() {};
 
     std::vector<unsigned char> rx;
     std::vector<unsigned char> tx;

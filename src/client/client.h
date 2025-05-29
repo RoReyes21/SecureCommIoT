@@ -32,7 +32,7 @@ private:
     std::thread io_thread;
     int nounce = 0;
     SessionKeysAsymetric session_keys_asymetric;
-    SessionKeySymetric session_keys_symetric;   
+    SessionKeysSymetric session_keys_symetric;   
 };
 
 

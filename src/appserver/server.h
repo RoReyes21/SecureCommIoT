@@ -35,7 +35,7 @@ private:
     std::atomic<int> connection_counter_;
     int nounce = 0;
 
-    std::map<int, SessionKeySymetric> session_keys_symetric_map;
+    std::map<int, SessionKeysSymetric> session_keys_symetric_map;
     std::map<int, SessionKeysAsymetric> session_keys_asymetric_map;
     std::map<int, std::shared_ptr<tcp::socket>> client_sockets;
     std::map<int, int> current_situation_client_map;

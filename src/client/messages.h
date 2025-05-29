@@ -3,16 +3,20 @@
 
 #include <string>
 #include <nlohmann/json.hpp>
+
 #include "../common/common.h"
 
 using Json = nlohmann::json;
 
-std::string get_hello_message(std::string device_id, int nounce) {
+std::string get_hello_message(std::string device_id, int nounce, std::string public_key, std::string long_term_public_key, std::string signature) {
+
     Json hello_msg = {
         {"method", "HelloFIUNAM"},
         {"device_ID", device_id},
-        {"nounce", nounce}
-        //{"signature", "signature"} // TODO: check how to sign signature
+        {"nounce", nounce},
+        {"signature_hex", signature},
+        {"public_key_hex", public_key},
+        {"long_term_public_key_hex", long_term_public_key}
     };
     return hello_msg.dump() + END_OF_MESSAGE;
 }

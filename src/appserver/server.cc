@@ -76,7 +76,11 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         }
     }
     else if (data["method"] == "simple_message") {
-        std::cout << "[Server] Client #" << client_id << " - Received simple message: " << data["message"] << "\n";
+        std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
+        std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
+
+        std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+        std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
         response = get_simple_response();
     }
     else {

@@ -20,7 +20,7 @@ def compile_server():
     if system == "Linux":
         compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/appserver/server.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -Iinclude -D_WIN32_WINNT=0x0601 -o {binary} -lsodium -lws2_32 -lmswsock"
     else:
         print("Operative system is not supported.")
         return
@@ -39,7 +39,7 @@ def run_server():
         return
 
     print(f"Running server: {bin_path}")
-    subprocess.run(bin_path, shell=True)
+    subprocess.run([f"./{bin_path}"], shell=False)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

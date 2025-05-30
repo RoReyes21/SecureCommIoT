@@ -20,7 +20,7 @@ def compile_client():
     if system == "Linux":
         compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -pthread -lsodium -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -Iinclude -D_WIN32_WINNT=0x0601 -o {binary} -lsodium -lws2_32 -lmswsock"
     else:
         print("Operative system is not supported.")
         return
@@ -39,7 +39,7 @@ def run_client():
         return
 
     print(f"Running client: {bin_path}")
-    subprocess.run(bin_path, shell=True)
+    subprocess.run([f"./{bin_path}"], shell=False)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

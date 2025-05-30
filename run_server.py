@@ -8,7 +8,17 @@ def signal_handler(sig, frame):
     print("\n[INFO] Ctrl+C detected. Ending server script...")
     sys.exit(0)
 
+def ensure_directories():
+    """Ensure required directories exist"""
+    directories = ["keys", "config", "bin/linux", "bin/windows", "bin/macos"]
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"Created directory: {directory}")
+
 def compile_server():
+    ensure_directories()  # Crear directorios antes de compilar
+
     system = platform.system()
     if system == "Linux":
         bin_dir = "bin/linux"

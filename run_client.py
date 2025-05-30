@@ -3,12 +3,23 @@ import platform
 import subprocess
 import signal
 import sys
+import random
 
 def signal_handler(sig, frame):
     print("\n[INFO] Ctrl+C detected. Ending server script...")
     sys.exit(0)
 
+def ensure_directories():
+    """Ensure required directories exist"""
+    directories = ["keys", "config", "bin/linux", "bin/windows", "bin/macos"]
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"Created directory: {directory}")
+
 def compile_client():
+    ensure_directories()  # Crear directorios antes de compilar
+
     system = platform.system()
     if system == "Linux":
         bin_dir = "bin/linux"
@@ -56,7 +67,18 @@ def run_client():
         return
 
     print(f"Running client: {bin_path}")
-    subprocess.run(bin_path, shell=True)
+    
+    # Generar device ID automático si no se especifica
+    default_id = f"device_{random.randint(1000, 9999)}"
+    device_id = input(f"Enter device ID (or press Enter for '{default_id}'): ").strip()
+    if not device_id:
+        device_id = default_id
+    
+    print(f"Starting client with device ID: {device_id}")
+    print("Note: Each client will have unique keys and register automatically")
+    
+    # Pasar device_id como argumento al programa C++
+    subprocess.run([bin_path, device_id])
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

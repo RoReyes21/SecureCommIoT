@@ -39,4 +39,16 @@ std::string get_simple_message(std::string message, std::string nounce) {
     return simple_msg.dump() + END_OF_MESSAGE;
 }
 
+std::string get_registration_request_message(std::string device_id, std::string public_key, 
+                                           std::string long_term_public_key, std::string auth_token = "") {
+    Json registration_msg = {
+        {"method", "RequestRegistration"},
+        {"device_ID", device_id},
+        {"public_key_hex", public_key},
+        {"long_term_public_key_hex", long_term_public_key},
+        {"auth_token", auth_token}
+    };
+    return registration_msg.dump() + END_OF_MESSAGE;
+}
+
 #endif // MESSAGES_H

@@ -69,35 +69,79 @@ bool Client::is_valid_response_from_server(std::string response) {
 }
 
 bool Client::establish_secure_connection_with_server() {
-
     std::string message, response;
 
     std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
 
-    // ToDo, replace with actual device ID, send only hash
-    message = get_hello_message("12345", get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+    // Intentar conexión normal primero
+    message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
     send_message(message);
 
     response = receive_message();
-    if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
+    
+    // Verificar si necesitamos registrarnos
+    if (response.find("authentication FAILED") != std::string::npos || 
+        response.find("NOT TRUSTED") != std::string::npos ||
+        response.empty()) {
+        
+        std::cout << "[Client] Device not trusted, attempting registration...\n";
+        
+        // Solicitar registro explícito
+        message = get_registration_request_message(device_id, 
+                                                 bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+                                                 bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
+                                                 "DEV_TOKEN_12345");
+        send_message(message);
+        
+        response = receive_message();
+        std::cout << "[Client] Registration response: " << response << "\n";
+        
+        if (response.find("RegistrationApproved") != std::string::npos) {
+            std::cout << "[Client] ✓ Device registration approved! Retrying handshake...\n";
+            
+            // Reintentar handshake después del registro exitoso
+            message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+                                        bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
+                                        bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
+            send_message(message);
+            response = receive_message();
+        } else {
+            std::cout << "[Client] ✗ Device registration rejected\n";
+            return false;
+        }
+    }
+
+    if (!is_valid_response_from_server(response)) {
+        std::cout << "[Client] Invalid response during handshake: " << response << "\n";
         return false;
+    }
 
     message = get_agree_params_message("ChaCha20", get_nounce());
     send_message(message);
 
     response = receive_message();
-    if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
+    if (!is_valid_response_from_server(response)) {
+        std::cout << "[Client] Invalid response during parameter agreement: " << response << "\n";
         return false;
+    }
 
-    std::cout << "[Client] Encrypted connection established with server" << "\n";
-
+    std::cout << "[Client] ✓ Encrypted connection established with server for device: " << device_id << "\n";
     return true;
 }
 
-int main() {
-    Client client("127.0.0.1", "8080");
+int main(int argc, char* argv[]) {
+    std::string device_id = "client1"; // Valor por defecto
+    
+    // Si se proporciona device ID como argumento, usarlo
+    if (argc > 1) {
+        device_id = argv[1];
+    }
+    
+    std::cout << "[Client] Using device ID: " << device_id << "\n";
+    
+    Client client("127.0.0.1", "8080", device_id);
 
     if (!client.establish_secure_connection_with_server()) {
         std::cerr << "[ERROR] Could not establish a secure connection with server." << "\n";
@@ -120,10 +164,9 @@ int main() {
         std::cout << "[Client] Received response: " << response << "\n";
 
         if (!client.is_valid_response_from_server(response)) {
-            std::cerr << "[ERROR] Invalid response from server." << "\n";
-            break;
-        }
-    }
+
+    return 0;
+}    }
 
     client.stop_socket();
 

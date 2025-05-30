@@ -12,25 +12,97 @@ void handle_signal(const asio::error_code& error, int signal_number) {
     }
 }
 
-bool Server::validate_signature(int client_id, json data) {
+bool Server::is_client_trusted(const std::string& public_key_hex, const std::string& long_term_public_key_hex) {
+    return SessionKeysAsymetric::is_client_registered(public_key_hex, long_term_public_key_hex);
+}
 
+bool Server::authenticate_new_device(int client_id, json data) {
+    std::string device_id = data.value("device_ID", "unknown");
+    std::string public_key_hex = data.value("public_key_hex", "");
+    std::string long_term_public_key_hex = data.value("long_term_public_key_hex", "");
+    std::string auth_token = data.value("auth_token", "");
+    
+    return SessionKeysAsymetric::authenticate_and_register_device(
+        device_id, public_key_hex, long_term_public_key_hex, auth_token);
+}
+
+bool Server::handle_device_registration_request(int client_id, json data, std::shared_ptr<tcp::socket> socket) {
+    std::string device_id = data.value("device_ID", "unknown");
+    
+    std::cout << "[Server] Device registration request from " << device_id << "\n";
+    
+    // Intentar autenticar y registrar el dispositivo
+    if (authenticate_new_device(client_id, data)) {
+        // Enviar respuesta de aprobación
+        json approval_response = {
+            {"method", "RegistrationApproved"},
+            {"device_ID", device_id},
+            {"status", "approved"},
+            {"message", "Device successfully registered as trusted"}
+        };
+        
+        std::string response = approval_response.dump() + END_OF_MESSAGE;
+        asio::write(*socket, asio::buffer(response));
+        
+        std::cout << "[Server] ✓ Device " << device_id << " registration APPROVED\n";
+        return true;
+    } else {
+        // Enviar respuesta de rechazo
+        json rejection_response = {
+            {"method", "RegistrationRejected"},
+            {"device_ID", device_id},
+            {"status", "rejected"},
+            {"message", "Device authentication failed"}
+        };
+        
+        std::string response = rejection_response.dump() + END_OF_MESSAGE;
+        asio::write(*socket, asio::buffer(response));
+        
+        std::cout << "[Server] ✗ Device " << device_id << " registration REJECTED\n";
+        return false;
+    }
+}
+
+bool Server::validate_signature(int client_id, json data) {
     std::vector<unsigned char> signature_bin = hex_string_to_bin(data["signature_hex"]);
     std::vector<unsigned char> public_key_bin = hex_string_to_bin(data["public_key_hex"]);
     std::vector<unsigned char> long_term_public_key_bin = hex_string_to_bin(data["long_term_public_key_hex"]);
 
+    // Si no está registrado, intentar autenticación automática
+    if (!is_client_trusted(data["public_key_hex"], data["long_term_public_key_hex"])) {
+        std::cout << "[Server] Client #" << client_id << " not in trusted list, attempting authentication...\n";
+        
+        if (authenticate_new_device(client_id, data)) {
+            std::cout << "[Server] ✓ Client #" << client_id << " successfully authenticated and added to trusted list\n";
+        } else {
+            std::cerr << "[Error] Client #" << client_id << " authentication FAILED - Connection rejected\n";
+            client_sockets[client_id]->close();
+            client_sockets.erase(client_id);
+            return false;
+        }
+    }
+
+    // Verificar firma
     if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
         std::cerr << "[Error] Invalid signature from Client #" << client_id << "\n";
         client_sockets[client_id]->close();
-        client_sockets.erase(client_id); //Todo, handle this better
+        client_sockets.erase(client_id);
         return false;
     }
 
-    SessionKeysAsymetric session_keys_asymetric;
+    // CORREGIDO: Generar claves de sesión ÚNICAS para este cliente específico
+    SessionKeysAsymetric session_keys_asymetric; // Nueva instancia para este cliente
     session_keys_asymetric_map.insert({client_id, session_keys_asymetric});
-    session_keys_symetric_map.insert({client_id, SessionKeysSymetric(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, true)}); 
+    
+    // Usar las claves específicas de este cliente (no las globales del servidor)
+    session_keys_symetric_map.insert({client_id, SessionKeysSymetric(
+        session_keys_asymetric.public_key,     // Clave específica de esta sesión
+        session_keys_asymetric.private_key,    // Clave específica de esta sesión  
+        public_key_bin, 
+        true
+    )}); 
 
-    std::cout << "[Server] Validated signature from Client #" << client_id << "\n";
-
+    std::cout << "[Server] ✓ TRUSTED CLIENT #" << client_id << " - Unique session keys generated\n";
     return true;
 }
 
@@ -59,19 +131,31 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         if (!validate_signature(client_id, data))
             return;        
 
-        // ToDo, replace with actual server ID, send only hash
-        response = get_whats_up_message("12345", get_nounce(), bin_to_hex_string(session_keys_asymetric_map[client_id].public_key, crypto_kx_PUBLICKEYBYTES),
+        response = get_whats_up_message("12345", get_nounce(), 
+                                bin_to_hex_string(session_keys_asymetric_map[client_id].public_key, crypto_kx_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric_map[client_id].long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric_map[client_id].signature, crypto_sign_BYTES));
+    }
+    else if (data["method"] == "RequestRegistration") {
+        // NUEVO: Manejar solicitud de registro de dispositivo
+        std::cout << "[Server] Client #" << client_id << " - Device registration request\n";
+        if (handle_device_registration_request(client_id, data, socket)) {
+            std::cout << "[Server] Client #" << client_id << " - Registration completed, awaiting HelloFIUNAM\n";
+            return; // El dispositivo debe enviar HelloFIUNAM nuevamente
+        } else {
+            client_sockets[client_id]->close();
+            client_sockets.erase(client_id);
+            return;
+        }
     }
     else if (data["method"] == "AgreeParams") {
         std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
 
-        if (data["algorithm"] == "ChaCha20") // ToDo, create a variable with the supported algorithms
+        if (data["algorithm"] == "ChaCha20")
             response = get_start_secure_conversartion_message("ok", get_nounce());
         else {
             client_sockets[client_id]->close();
-            client_sockets.erase(client_id); //ToDo, handle this better
+            client_sockets.erase(client_id);
             std::cout << "[Server] Client #" << client_id << " - Closed connection due to unsupported algorithm: " << data["algorithm"] <<" \n";
         }
     }
@@ -88,7 +172,7 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
 
-        response = get_simple_response(string_cipher_text, string_nonce); //ToDo, encrypt the whole message
+        response = get_simple_response(string_cipher_text, string_nonce);
     }
     else {
         std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";
@@ -104,6 +188,10 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
                 handle_client(socket, client_id);
             } else {
                 std::cerr << "[Server] Client #" << client_id << " - Write error: " << ec.message() << "\n";
+                // Limpiar recursos del cliente desconectado
+                session_keys_asymetric_map.erase(client_id);
+                session_keys_symetric_map.erase(client_id);
+                client_sockets.erase(client_id);
             }
         });
 }
@@ -142,8 +230,16 @@ void Server::handle_client(std::shared_ptr<tcp::socket> socket, int client_id) {
 
                 } else if (ec == asio::error::eof) {
                     std::cout << "[Server] Client #" << client_id << " disconnected\n";
+                    // Limpiar recursos del cliente desconectado
+                    session_keys_asymetric_map.erase(client_id);
+                    session_keys_symetric_map.erase(client_id);
+                    client_sockets.erase(client_id);
                 } else {
                     std::cerr << "[Server] Client #" << client_id << " - Read error: " << ec.message() << "\n";
+                    // Limpiar recursos del cliente desconectado
+                    session_keys_asymetric_map.erase(client_id);
+                    session_keys_symetric_map.erase(client_id);
+                    client_sockets.erase(client_id);
                 }
             });
     }

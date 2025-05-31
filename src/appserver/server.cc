@@ -1,7 +1,8 @@
 #include "server.h"
-
+#include "../common/common.h"
 #include "messages.h"
 #include "../utils/convert_data.h"
+
 
 asio::io_context io;
 
@@ -102,6 +103,8 @@ bool Server::validate_signature(int client_id, json data) {
 }
 
 void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp::socket> socket, int client_id) {
+    json data;
+    std::string response;
 
     std::size_t fin_pos = message.find(END_OF_MESSAGE);
     if (fin_pos == std::string::npos) {
@@ -109,16 +112,20 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         return;
     }
 
-    std::string json_message = message.substr(0, fin_pos);
-    json data;
+    std::string json_response = message.substr(0, fin_pos);
+    try {
+        data = json::parse(json_response);
+    } catch (json::parse_error& e) {
+        std::cerr << "[ERROR] Json could not be parsed: " << e.what() << "\n";
+        return;
+    }
 
+    std::string json_message = message.substr(0, fin_pos);
     try {
         data = json::parse(json_message);
     } catch (json::parse_error& e) {
         std::cerr << "[ERROR] Json could not be parsed: " << e.what() << "\n";
     }
-
-    std::string response;
 
     if (data["method"] == "HelloFIUNAM") {
         std::cout << "[Server] Client #" << client_id << " - Received of a request to establish a secure connection\n";
@@ -154,20 +161,35 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
             std::cout << "[Server] Client #" << client_id << " - Closed connection due to unsupported algorithm: " << data["algorithm"] <<" \n";
         }
     }
+    
     else if (data["method"] == "simple_message") {
         std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
         std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
 
-        std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+        std::string msg_clearly; 
+
+      // LLamada a la nueva decrypt_message y CHEQUEO DE SU RETORNO para autenticación
+        if (!decrypt_message(session_keys_symetric_map[client_id].rx, // Usamos la clave de recepción
+                             hex_string_to_bin(data["message"]), 
+                             hex_string_to_bin(data["nounce"]), 
+                             msg_clearly)) {
+            // Si decrypt_message devuelve 'false', la autenticación falló. Esto es una detección de Message Tampering.
+            std::cerr << "[Server] Client #" << client_id << " - [ANTI-TAMPERING] Authentication failed for simple_message. Closing connection." << "\n";
+            // Cierra la conexión inmediatamente para mitigar el ataque.
+            socket->close(); 
+            return; // Detener el procesamiento de este cliente, ya que la sesión está comprometida.
+        }
         std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
         
-        std::vector<unsigned char> nonce;
-        std::string hardcode_msg = "is_all_ok"; // ToDo, replace with a coherent message
-        std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce);
-        std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
-        std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
+        // El servidor también encripta su respuesta
+        std::vector<unsigned char> nonce_server; // Nuevo nonce para el mensaje de respuesta del servidor
+        std::string hardcode_msg = "is_all_ok"; // ToDo, reemplazar con un mensaje coherente
+        
+        std::vector<unsigned char> ciphertext_server = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce_server);
+        std::string string_cipher_text_server = bin_to_hex_string(ciphertext_server.data(), ciphertext_server.size());
+        std::string string_nonce_server = bin_to_hex_string(nonce_server.data(), nonce_server.size());
 
-        response = get_simple_response(string_cipher_text, string_nonce);
+        response = get_simple_response(string_cipher_text_server, string_nonce_server); 
     }
     else {
         std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";
@@ -252,3 +274,4 @@ int main() {
 
     return 0;
 }
+

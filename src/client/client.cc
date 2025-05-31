@@ -54,12 +54,23 @@ bool Client::is_valid_response_from_server(std::string response) {
     }
     else if (data["method"] == "StartConversation") {
         std::cout << "[Client] Server agreed to the parameters" << "\n";
-        std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
         std::cout << "Server nounce: " << data["nounce"] << "\n";
         is_valid = true;
     }
+
     else if (data["method"] == "conn_continue") {
-        std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+        std::string msg_clearly; // Se declara aquí para almacenar el resultado descifrado
+        // LLamada a la nueva decrypt_message y CHEQUEO DE SU RETORNO para autenticación
+        if (!decrypt_message(session_keys_symetric.rx, // Usamos la clave de recepción
+                             hex_string_to_bin(data["message"]), 
+                             hex_string_to_bin(data["nounce"]), 
+                             msg_clearly)) {
+            // Si decrypt_message devuelve 'false', la autenticación falló.
+            // Esto es una detección de Message Tampering.
+            std::cerr << "[Client] [ANTI-TAMPERING] Authentication failed for conn_continue message. Terminating connection." << "\n";
+            //  El cliente debe considerar esta conexión como comprometida.
+            return false; // Indica que la respuesta no es válida, lo que detendrá el bucle en main().
+        }
         std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
         is_valid = true;
     }
@@ -69,7 +80,6 @@ bool Client::is_valid_response_from_server(std::string response) {
 
 bool Client::establish_secure_connection_with_server() {
     std::string message, response;
-
     std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
 
     message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
@@ -152,7 +162,7 @@ int main(int argc, char* argv[]) {
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-        client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
+        client.send_message(get_simple_message(string_cipher_text, string_nonce)); 
 
         std::string response = client.receive_message();
 

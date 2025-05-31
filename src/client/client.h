@@ -28,7 +28,7 @@ public:
     bool establish_secure_connection_with_server();
     bool is_valid_response_from_server(std::string response);
     bool validate_signature(json data);
-    int get_nounce() { return nounce++; }
+    int get_nonce() { return nonce++; }
     SessionKeysSymetric get_session_keys_symetric() {
         return session_keys_symetric;
     }
@@ -46,7 +46,7 @@ public:
 private:
     SocketClient socket_client;
     std::thread io_thread;
-    int nounce = 0;
+    int nonce = 0;
     std::string device_id;
     SessionKeysAsymetric session_keys_asymetric;
     SessionKeysSymetric session_keys_symetric;

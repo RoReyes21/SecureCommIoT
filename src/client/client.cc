@@ -54,16 +54,10 @@ bool Client::is_valid_response_from_server(std::string response) {
     }
     else if (data["method"] == "StartConversation") {
         std::cout << "[Client] Server agreed to the parameters" << "\n";
-        //std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
         std::cout << "Server nounce: " << data["nounce"] << "\n";
-        //ToDo, save symetric key, etc. verify all parameters
         is_valid = true;
     }
-    /*else if (data["method"] == "conn_continue") {
-        std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
-        std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
-        is_valid = true;
-    }*/
+
     else if (data["method"] == "conn_continue") {
         std::string msg_clearly; // Se declara aquí para almacenar el resultado descifrado
         // LLamada a la nueva decrypt_message y CHEQUEO DE SU RETORNO para autenticación
@@ -74,60 +68,19 @@ bool Client::is_valid_response_from_server(std::string response) {
             // Si decrypt_message devuelve 'false', la autenticación falló.
             // Esto es una detección de Message Tampering.
             std::cerr << "[Client] [ANTI-TAMPERING] Authentication failed for conn_continue message. Terminating connection." << "\n";
-            // ¡ACCIÓN CRUCIAL! El cliente debe considerar esta conexión como comprometida.
+            //  El cliente debe considerar esta conexión como comprometida.
             return false; // Indica que la respuesta no es válida, lo que detendrá el bucle en main().
         }
         std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
         is_valid = true;
     }
 
-    /*//--- MODIFICACION PARA SIMULAR ATAQUE ---
-    else if (data["method"] == "conn_continue") {
-        std::string msg_clearly; 
-
-        // --- INICIO DE LA MODIFICACIÓN TEMPORAL PARA PRUEBA ---
-        std::vector<unsigned char> received_ciphertext = hex_string_to_bin(data["message"]);
-        std::vector<unsigned char> received_nonce = hex_string_to_bin(data["nounce"]);
-
-        // Simular Tampering: Cambiar un byte del ciphertext
-        // Esto debería causar que la autenticación falle en decrypt_message
-        if (!received_ciphertext.empty()) {
-            std::cout << "[Client][TEST] Tampering with received ciphertext for testing purposes..." << std::endl;
-            // Invierte el primer byte del ciphertext. ¡Un cambio mínimo para una gran detección!
-            received_ciphertext[0] = ~received_ciphertext[0]; 
-        }
-        // --- FIN DE LA MODIFICACIÓN TEMPORAL PARA PRUEBA ---
-
-        // Llamada a la nueva decrypt_message con el mensaje POTENCIALMENTE ALTERADO
-        if (!decrypt_message(session_keys_symetric.rx, 
-                             received_ciphertext, // ¡Pasamos el ciphertext alterado aquí!
-                             received_nonce, 
-                             msg_clearly)) {
-            // Si decrypt_message devuelve 'false', la autenticación falló.
-            std::cerr << "[Client] [ANTI-TAMPERING] Authentication failed for conn_continue message. Terminating connection." << "\n";
-            return false; 
-        }
-        std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
-        is_valid = true;
-    }
-    //--- MODIFICACION PARA SIMULAR ATAQUE ---*/
-
     return is_valid;
 }
 
 bool Client::establish_secure_connection_with_server() {
-
     std::string message, response;
-
     std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
-
-    // ToDo, replace with actual device ID, send only hash
-    /*message = get_hello_message("12345", get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
-                                bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
-                                bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
-
-    send_message(message);*/
-
     message = get_hello_message("12345", get_nounce(), // get_nounce() aquí debería ser robusto
                                  bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                  bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
@@ -135,14 +88,14 @@ bool Client::establish_secure_connection_with_server() {
     send_message(message);
 
     response = receive_message();
-    if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
+    if (!is_valid_response_from_server(response))
         return false;
 
     message = get_agree_params_message("ChaCha20", get_nounce());
     send_message(message);
 
     response = receive_message();
-    if (!is_valid_response_from_server(response)) //ToDo, check if response is valid
+    if (!is_valid_response_from_server(response)) 
         return false;
 
     std::cout << "[Client] Encrypted connection established with server" << "\n";
@@ -168,7 +121,7 @@ int main() {
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-        client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
+        client.send_message(get_simple_message(string_cipher_text, string_nonce)); 
 
         std::string response = client.receive_message();
         std::cout << "[Client] Received response: " << response << "\n";

@@ -155,7 +155,6 @@ int main(int argc, char* argv[]) {
         client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
 
         std::string response = client.receive_message();
-        std::cout << "[Client] Received response: " << response << "\n";
 
         if (!client.is_valid_response_from_server(response)) {
 

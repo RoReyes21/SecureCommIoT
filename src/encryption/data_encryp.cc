@@ -98,15 +98,12 @@ std::string SessionKeysAsymetric::export_long_term_public_key_hex() const {
 }
 
 void SessionKeysAsymetric::auto_register_first_client() {
-    // Si no existe archivo de clientes confiables, crear cliente automáticamente
     if (!std::filesystem::exists("config/trusted_clients.txt")) {
         std::cout << "[Info] First run detected, creating default client keys...\n";
         
-        // Generar claves para el cliente predeterminado
         SessionKeysAsymetric default_client;
         default_client.save_keys_to_file("keys/client_keys.bin");
         
-        // Registrar cliente en la lista de confiables
         register_client_public_key("default_client", 
                                  default_client.export_public_key_hex(),
                                  default_client.export_long_term_public_key_hex());
@@ -118,7 +115,6 @@ void SessionKeysAsymetric::auto_register_first_client() {
 void SessionKeysAsymetric::initialize_trusted_clients_if_needed() {
     ensure_keys_directory();
     
-    // Si no existe el archivo de clientes confiables, crearlo
     if (!std::filesystem::exists("config/trusted_clients.txt")) {
         std::ofstream file("config/trusted_clients.txt");
         if (file.is_open()) {
@@ -135,13 +131,11 @@ bool SessionKeysAsymetric::register_client_public_key(const std::string& client_
                                                      const std::string& long_term_public_key_hex) {
     initialize_trusted_clients_if_needed();
     
-    // Verificar si ya está registrado
     if (is_client_registered(public_key_hex, long_term_public_key_hex)) {
         std::cout << "[Info] Client " << client_id << " already registered\n";
         return true;
     }
     
-    // Agregar al archivo
     std::ofstream file("config/trusted_clients.txt", std::ios::app);
     if (!file.is_open()) {
         std::cout << "[Error] Could not open trusted clients file\n";
@@ -164,12 +158,10 @@ bool SessionKeysAsymetric::is_client_registered(const std::string& public_key_he
     
     std::string line;
     while (std::getline(file, line)) {
-        // Saltar comentarios y líneas vacías
         if (line.empty() || line[0] == '#') {
             continue;
         }
         
-        // Parsear línea: client_id|public_key_hex|long_term_public_key_hex
         size_t first_pipe = line.find('|');
         size_t second_pipe = line.find('|', first_pipe + 1);
         
@@ -198,16 +190,12 @@ bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& d
         return true;
     }
     
-    // Para este ejemplo, usamos un token simple o auto-aprobación
-    // En producción, aquí verificarías certificados, tokens de fabricante, etc.
     bool is_authorized = false;
     
     if (auth_token.empty()) {
-        // Auto-aprobación para desarrollo (SOLO PARA TESTING)
         std::cout << "[Auth] WARNING: Auto-approving device " << device_id << " (DEV MODE)\n";
         is_authorized = true;
     } else if (is_valid_auth_token(auth_token)) {
-        // Verificar token de autenticación
         std::cout << "[Auth] Valid auth token for device " << device_id << "\n";
         is_authorized = true;
     } else {
@@ -216,9 +204,8 @@ bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& d
     }
     
     if (is_authorized) {
-        // Registrar dispositivo como confiable
         if (register_client_public_key(device_id, public_key_hex, long_term_public_key_hex)) {
-            std::cout << "[Auth] ✓ Device " << device_id << " successfully authenticated and registered as TRUSTED\n";
+            std::cout << "[Auth] Device " << device_id << " successfully authenticated and registered as TRUSTED\n";
             return true;
         }
     }
@@ -227,7 +214,6 @@ bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& d
 }
 
 bool SessionKeysAsymetric::is_valid_auth_token(const std::string& auth_token) {
-    // Lista de tokens válidos (en producción esto sería más sofisticado)
     std::vector<std::string> valid_tokens = {
         "DEV_TOKEN_12345",
         "MANUFACTURER_CERT_ABC",
@@ -238,7 +224,6 @@ bool SessionKeysAsymetric::is_valid_auth_token(const std::string& auth_token) {
 }
 
 std::string SessionKeysAsymetric::generate_device_auth_challenge() {
-    // Generar un challenge aleatorio para verificar identidad
     unsigned char challenge[32];
     randombytes_buf(challenge, sizeof(challenge));
     
@@ -250,8 +235,6 @@ std::string SessionKeysAsymetric::generate_device_auth_challenge() {
 bool SessionKeysAsymetric::verify_device_response(const std::string& challenge, 
                                                  const std::string& response, 
                                                  const std::string& public_key_hex) {
-    // Verificar que el dispositivo pudo firmar el challenge con su clave privada
-    // (Implementación simplificada)
     return !challenge.empty() && !response.empty() && !public_key_hex.empty();
 }
 

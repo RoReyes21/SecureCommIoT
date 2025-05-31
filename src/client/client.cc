@@ -56,7 +56,6 @@ bool Client::is_valid_response_from_server(std::string response) {
         std::cout << "[Client] Server agreed to the parameters" << "\n";
         std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
         std::cout << "Server nounce: " << data["nounce"] << "\n";
-        //ToDo, save symetric key, etc. verify all parameters
         is_valid = true;
     }
     else if (data["method"] == "conn_continue") {
@@ -73,7 +72,6 @@ bool Client::establish_secure_connection_with_server() {
 
     std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
 
-    // Intentar conexión normal primero
     message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
@@ -81,14 +79,12 @@ bool Client::establish_secure_connection_with_server() {
 
     response = receive_message();
     
-    // Verificar si necesitamos registrarnos
     if (response.find("authentication FAILED") != std::string::npos || 
         response.find("NOT TRUSTED") != std::string::npos ||
         response.empty()) {
         
         std::cout << "[Client] Device not trusted, attempting registration...\n";
         
-        // Solicitar registro explícito
         message = get_registration_request_message(device_id, 
                                                  bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                                  bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
@@ -99,9 +95,8 @@ bool Client::establish_secure_connection_with_server() {
         std::cout << "[Client] Registration response: " << response << "\n";
         
         if (response.find("RegistrationApproved") != std::string::npos) {
-            std::cout << "[Client] ✓ Device registration approved! Retrying handshake...\n";
+            std::cout << "[Client] Device registration approved! Retrying handshake...\n";
             
-            // Reintentar handshake después del registro exitoso
             message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                         bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                         bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
@@ -132,9 +127,8 @@ bool Client::establish_secure_connection_with_server() {
 }
 
 int main(int argc, char* argv[]) {
-    std::string device_id = "client1"; // Valor por defecto
+    std::string device_id = "client1";
     
-    // Si se proporciona device ID como argumento, usarlo
     if (argc > 1) {
         device_id = argv[1];
     }

@@ -19,7 +19,6 @@ using json = nlohmann::json;
 class Server {
 public:
     Server(asio::io_context& io, unsigned short port) : io_(io), acceptor_(io, tcp::endpoint(tcp::v4(), port)), connection_counter_(0) {
-        // Inicializar sistema de clientes confiables en la primera ejecución
         SessionKeysAsymetric::initialize_trusted_clients_if_needed();
         SessionKeysAsymetric::auto_register_first_client();
     }
@@ -42,9 +41,9 @@ private:
     std::atomic<int> connection_counter_;
     int nounce = 0;
 
-    SessionKeysAsymetric server_keys{"keys/server_keys.bin"};  // Claves PERSISTENTES del servidor para identidad
-    std::map<int, SessionKeysSymetric> session_keys_symetric_map;     // Claves SIMÉTRICAS únicas por cliente
-    std::map<int, SessionKeysAsymetric> session_keys_asymetric_map;   // Claves TEMPORALES únicas por cliente
+    SessionKeysAsymetric server_keys{"keys/server_keys.bin"};
+    std::map<int, SessionKeysSymetric> session_keys_symetric_map;
+    std::map<int, SessionKeysAsymetric> session_keys_asymetric_map;
     std::map<int, std::shared_ptr<tcp::socket>> client_sockets;
     std::map<int, int> current_situation_client_map;
 };

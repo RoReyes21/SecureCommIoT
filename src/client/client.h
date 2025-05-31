@@ -11,7 +11,8 @@
 
 class Client {
 public:
-    Client(const std::string& server_ip, const std::string& server_port) : socket_client(server_ip, server_port) {
+    Client(const std::string& server_ip, const std::string& server_port, const std::string& client_id = "default") 
+        : socket_client(server_ip, server_port), device_id(client_id), session_keys_asymetric("keys/client_" + client_id + "_keys.bin") {
         io_thread = std::thread([this]() {
             socket_client.run();
         });
@@ -26,11 +27,16 @@ public:
     bool is_valid_response_from_server(std::string response);
     bool validate_signature(json data);
     int get_nounce() { return nounce++; }
+    SessionKeysSymetric get_session_keys_symetric() {
+        return session_keys_symetric;
+    }
+    std::string get_device_id() const { return device_id; }
 
 private:
     SocketClient socket_client;
     std::thread io_thread;
     int nounce = 0;
+    std::string device_id;
     SessionKeysAsymetric session_keys_asymetric;
     SessionKeysSymetric session_keys_symetric;   
 };

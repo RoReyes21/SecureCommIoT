@@ -8,10 +8,30 @@ def signal_handler(sig, frame):
     print("\n[INFO] Ctrl+C detected. Ending server script...")
     sys.exit(0)
 
+def ensure_directories():
+    """Ensure required directories exist"""
+    directories = ["keys", "config", "bin/linux", "bin/windows", "bin/macos"]
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            print(f"Created directory: {directory}")
+
 def compile_server():
+    ensure_directories()  # Crear directorios antes de compilar
+
     system = platform.system()
-    bin_dir = "bin/linux" if system == "Linux" else "bin/windows"
-    binary = os.path.join(bin_dir, "server" if system == "Linux" else "server.exe")
+    if system == "Linux":
+        bin_dir = "bin/linux"
+        binary = os.path.join(bin_dir, "server")
+    elif system == "Windows":
+        bin_dir = "bin/windows"
+        binary = os.path.join(bin_dir, "server.exe")
+    elif system == "Darwin":  # macOS
+        bin_dir = "bin/macos"
+        binary = os.path.join(bin_dir, "server")
+    else:
+        print("Operative system is not supported.")
+        return
 
     if not os.path.exists(bin_dir):
         os.makedirs(bin_dir)
@@ -20,10 +40,9 @@ def compile_server():
     if system == "Linux":
         compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/appserver/server.cc -Iasio/include -o {binary}"
-    else:
-        print("Operative system is not supported.")
-        return
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -o {binary}"
+    elif system == "Darwin":  # macOS
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
 
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)
@@ -32,7 +51,15 @@ def compile_server():
 
 def run_server():
     system = platform.system()
-    bin_path = "bin/linux/server" if system == "Linux" else "bin/windows/server.exe"
+    if system == "Linux":
+        bin_path = "bin/linux/server"
+    elif system == "Windows":
+        bin_path = "bin/windows/server.exe"
+    elif system == "Darwin":  # macOS
+        bin_path = "bin/macos/server"
+    else:
+        print("Operative system is not supported.")
+        return
 
     if not os.path.exists(bin_path):
         print("The binary was not found. Run the compilation first")

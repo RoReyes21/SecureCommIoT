@@ -126,7 +126,7 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         if (!validate_signature(client_id, data))
             return;        
 
-        response = get_whats_up_message("12345", get_nounce(), 
+        response = get_whats_up_message("12345", get_nonce(), 
                                 bin_to_hex_string(session_keys_asymetric_map[client_id].public_key, crypto_kx_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric_map[client_id].long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric_map[client_id].signature, crypto_sign_BYTES));
@@ -147,7 +147,7 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
 
         if (data["algorithm"] == "ChaCha20")
-            response = get_start_secure_conversartion_message("ok", get_nounce());
+            response = get_start_secure_conversartion_message("ok", get_nonce());
         else {
             client_sockets[client_id]->close();
             client_sockets.erase(client_id);
@@ -156,12 +156,21 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
     }
     else if (data["method"] == "simple_message") {
         std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
-        std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
+        std::cout << "[Server] Client #" << client_id << " - Nonce: " << data["nonce"] << "\n";
 
-        std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+        std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nonce"]));
         std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
-        
-        std::vector<unsigned char> nonce;
+
+        std::string nonce_hex = data["nonce"]; // Verificar que el nonce no se repita
+        if (used_nonces_map[client_id].count(nonce_hex) > 0) {
+            std::cerr << "[ALERT] Replay attack detected: Nonce already used for Client #" << client_id << "\n";
+            client_sockets[client_id]->close();
+            client_sockets.erase(client_id);
+            return;
+        }
+        used_nonces_map[client_id].insert(nonce_hex);
+
+        std::vector<unsigned char> nonce = generate_unique_nonce(client_id);
         std::string hardcode_msg = "is_all_ok"; // ToDo, replace with a coherent message
         std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce);
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
@@ -235,6 +244,20 @@ void Server::handle_client(std::shared_ptr<tcp::socket> socket, int client_id) {
                 }
             });
     }
+
+std::vector<unsigned char> Server::generate_unique_nonce(int client_id) {
+    std::vector<unsigned char> nonce(crypto_secretbox_NONCEBYTES);
+
+    do {
+        randombytes_buf(nonce.data(), nonce.size());
+    } while (used_nonces_map[client_id].count(
+                 bin_to_hex_string(nonce.data(), nonce.size())) > 0);
+
+    // Registrar el nonce como ya utilizado
+    used_nonces_map[client_id].insert(bin_to_hex_string(nonce.data(), nonce.size()));
+    return nonce;
+}
+
 
 int main() {
     try {

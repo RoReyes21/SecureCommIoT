@@ -55,11 +55,16 @@ bool Client::is_valid_response_from_server(std::string response) {
     else if (data["method"] == "StartConversation") {
         std::cout << "[Client] Server agreed to the parameters" << "\n";
         std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
-        std::cout << "Server nounce: " << data["nounce"] << "\n";
+        std::cout << "Server nonce: " << data["nonce"] << "\n";
         is_valid = true;
     }
     else if (data["method"] == "conn_continue") {
-        std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+        if (is_nonce_repeated(data["nonce"])) {
+            std::cerr << "[Client][Security] ✗ Nonce duplicado. Mensaje descartado.\n";
+            return false;
+        }
+        
+        std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nonce"]));
         std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
         is_valid = true;
     }
@@ -72,7 +77,7 @@ bool Client::establish_secure_connection_with_server() {
 
     std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
 
-    message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+    message = get_hello_message(device_id, get_nonce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
     send_message(message);
@@ -97,7 +102,7 @@ bool Client::establish_secure_connection_with_server() {
         if (response.find("RegistrationApproved") != std::string::npos) {
             std::cout << "[Client] Device registration approved! Retrying handshake...\n";
             
-            message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+            message = get_hello_message(device_id, get_nonce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                         bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                         bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
             send_message(message);
@@ -113,7 +118,7 @@ bool Client::establish_secure_connection_with_server() {
         return false;
     }
 
-    message = get_agree_params_message("ChaCha20", get_nounce());
+    message = get_agree_params_message("ChaCha20", get_nonce());
     send_message(message);
 
     response = receive_message();
@@ -147,8 +152,11 @@ int main(int argc, char* argv[]) {
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 
-        std::vector<unsigned char> nonce;
+        std::vector<unsigned char> nonce(crypto_aead_chacha20poly1305_IETF_NPUBBYTES);
+        randombytes_buf(nonce.data(), nonce.size());
+
         std::vector<unsigned char> ciphertext = encrypt_message(client.get_session_keys_symetric().tx, msg_to_server, nonce);
+
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());

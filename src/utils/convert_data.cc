@@ -52,15 +52,13 @@ bool decrypt_message(const std::vector<unsigned char>& rx_key, const std::vector
     std::vector<unsigned char> decrypted_buf(ciphertext.size() - crypto_aead_chacha20poly1305_IETF_ABYTES); 
     unsigned long long decrypted_len;
 
-    // La función de descifrado autenticada. Su valor de retorno es CLAVE para la seguridad.
     if (crypto_aead_chacha20poly1305_ietf_decrypt( decrypted_buf.data(), &decrypted_len,
         nullptr, ciphertext.data(), ciphertext.size(), nullptr, 0, nonce.data(),rx_key.data()) != 0) {
         
-        // Si el valor de retorno es distinto de 0, la autenticación (Poly1305) falló, el mensaje fue manipulado en tránsito o es incorrecto (clave, nonce, etc.).
         std::cerr << "[SECURITY ALERT] Decryption failed: Message has been tampered with or invalid key/nonce! Discarding message." << std::endl;
-        decrypted_message_out = ""; // Limpiar buffer por seguridad, nunca usar datos no autenticados.
-        return false; // Indicar que la autenticación falló
+        decrypted_message_out = "";
+        return false;
     }
     decrypted_message_out.assign(reinterpret_cast<char*>(decrypted_buf.data()), decrypted_len);
-    return true; // Indicar éxito
+    return true;
 }

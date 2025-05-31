@@ -59,17 +59,12 @@ bool Client::is_valid_response_from_server(std::string response) {
     }
 
     else if (data["method"] == "conn_continue") {
-        std::string msg_clearly; // Se declara aquí para almacenar el resultado descifrado
-        // LLamada a la nueva decrypt_message y CHEQUEO DE SU RETORNO para autenticación
-        if (!decrypt_message(session_keys_symetric.rx, // Usamos la clave de recepción
-                             hex_string_to_bin(data["message"]), 
-                             hex_string_to_bin(data["nounce"]), 
-                             msg_clearly)) {
-            // Si decrypt_message devuelve 'false', la autenticación falló.
-            // Esto es una detección de Message Tampering.
+        std::string msg_clearly;
+
+        if (!decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]), msg_clearly)) {
+
             std::cerr << "[Client] [ANTI-TAMPERING] Authentication failed for conn_continue message. Terminating connection." << "\n";
-            //  El cliente debe considerar esta conexión como comprometida.
-            return false; // Indica que la respuesta no es válida, lo que detendrá el bucle en main().
+            return false;
         }
         std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
         is_valid = true;

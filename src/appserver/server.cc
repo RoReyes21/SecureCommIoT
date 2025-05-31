@@ -168,20 +168,13 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
 
         std::string msg_clearly; 
 
-      // LLamada a la nueva decrypt_message y CHEQUEO DE SU RETORNO para autenticación
-        if (!decrypt_message(session_keys_symetric_map[client_id].rx, // Usamos la clave de recepción
-                             hex_string_to_bin(data["message"]), 
-                             hex_string_to_bin(data["nounce"]), 
-                             msg_clearly)) {
-            // Si decrypt_message devuelve 'false', la autenticación falló. Esto es una detección de Message Tampering.
+        if (!decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]), msg_clearly)) {
             std::cerr << "[Server] Client #" << client_id << " - [ANTI-TAMPERING] Authentication failed for simple_message. Closing connection." << "\n";
-            // Cierra la conexión inmediatamente para mitigar el ataque.
             socket->close(); 
-            return; // Detener el procesamiento de este cliente, ya que la sesión está comprometida.
+            return;
         }
         std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
         
-        // El servidor también encripta su respuesta
         std::vector<unsigned char> nonce_server; // Nuevo nonce para el mensaje de respuesta del servidor
         std::string hardcode_msg = "is_all_ok"; // ToDo, reemplazar con un mensaje coherente
         

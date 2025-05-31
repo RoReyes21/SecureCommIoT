@@ -157,9 +157,9 @@ int main(int argc, char* argv[]) {
         std::string response = client.receive_message();
 
         if (!client.is_valid_response_from_server(response)) {
-
-    return 0;
-}    }
+            return 0;
+        }
+    }
 
     client.stop_socket();
 

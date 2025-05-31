@@ -38,11 +38,11 @@ def compile_server():
 
     compile_cmd = ""
     if system == "Linux":
-        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/hash_utils.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/hash_utils.cc src/encryption/data_encryp.cc -Iasio/include -o {binary}"
     elif system == "Darwin":  # macOS
-        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/hash_utils.cc src/encryption/data_encryp.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
 
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)

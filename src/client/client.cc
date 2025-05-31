@@ -1,5 +1,5 @@
 #include "client.h"
-
+#include "../utils/hash_utils.h"
 #include "../common/common.h"
 #include "../utils/convert_data.h"
 #include "messages.h"
@@ -147,12 +147,34 @@ int main(int argc, char* argv[]) {
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 
+        // Cálculo del hash del mensaje original
+        std::vector<unsigned char> msg_bytes(msg_to_server.begin(), msg_to_server.end());
+        std::string sha256_digest = sha256_hex(msg_bytes);
+
+        // Encriptar el mensaje
         std::vector<unsigned char> nonce;
         std::vector<unsigned char> ciphertext = encrypt_message(client.get_session_keys_symetric().tx, msg_to_server, nonce);
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-        client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
+
+        // Generar mensaje extendido con el hash
+        json simple_msg_json = {
+            {"method", "simple_message"},
+            {"message", string_cipher_text},
+            {"nounce", string_nonce},
+            {"sha256", sha256_digest}
+        };
+
+        // Enviar
+        client.send_message(simple_msg_json.dump() + END_OF_MESSAGE);
+
+        // std::vector<unsigned char> nonce;
+        // std::vector<unsigned char> ciphertext = encrypt_message(client.get_session_keys_symetric().tx, msg_to_server, nonce);
+
+        // std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
+        // std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
+        // client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
 
         std::string response = client.receive_message();
 

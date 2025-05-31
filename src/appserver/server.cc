@@ -1,7 +1,9 @@
 #include "server.h"
-
+#include "../utils/hash_utils.h"
 #include "messages.h"
 #include "../utils/convert_data.h"
+#include <ctime>
+#include <sstream>
 
 asio::io_context io;
 
@@ -158,12 +160,36 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
         std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
 
-        std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
-        std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
-        
+        // Desencriptar
+        std::string decrypted = decrypt_message(
+            session_keys_symetric_map[client_id].rx,
+            hex_string_to_bin(data["message"]),
+            hex_string_to_bin(data["nounce"])
+        );
+
+        // Verificar integridad
+        std::vector<unsigned char> decrypted_bytes(decrypted.begin(), decrypted.end());
+        std::string computed_hash = sha256_hex(decrypted_bytes);
+        std::string received_hash = data.value("sha256", "");
+
+        if (computed_hash != received_hash) {
+            std::cerr << "[Server] Client #" << client_id << " - SHA-256 mismatch! Possible tampering.\n";
+            return; // Abort handling this message
+        }
+
+        std::cout << "[Server] Client #" << client_id << " - Decrypted and verified message: " << decrypted << "\n";
+
+        // Preparar respuesta
         std::vector<unsigned char> nonce;
-        std::string hardcode_msg = "is_all_ok"; // ToDo, replace with a coherent message
-        std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce);
+        // Generar fecha actual (UTC)
+        std::time_t now = std::time(nullptr);
+        std::tm* now_tm = std::gmtime(&now);
+        std::ostringstream oss;
+        oss << "ACK: message verified successfully at "
+            << std::put_time(now_tm, "%Y-%m-%d %H:%M:%S UTC");
+
+        std::string server_response_msg = oss.str();
+        std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, server_response_msg, nonce);
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
 

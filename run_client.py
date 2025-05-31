@@ -39,11 +39,11 @@ def compile_client():
 
     compile_cmd = ""
     if system == "Linux":
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -pthread -lsodium -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/hash_utils.cc src/utils/convert_data.cc -Iasio/include -pthread -lsodium -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/hash_utils.cc src/utils/convert_data.cc -Iasio/include -o {binary}"
     elif system == "Darwin":  # macOS
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/hash_utils.cc src/utils/convert_data.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
 
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)

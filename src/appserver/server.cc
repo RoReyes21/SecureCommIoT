@@ -1,5 +1,5 @@
 #include "server.h"
-#include "../common/common.h" // Asegúrate de que esta línea esté al principio
+#include "../common/common.h"
 #include "messages.h"
 #include "../utils/convert_data.h"
 
@@ -82,95 +82,35 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
             std::cout << "[Server] Client #" << client_id << " - Closed connection due to unsupported algorithm: " << data["algorithm"] <<" \n";
         }
     }
-    /*else if (data["method"] == "simple_message") {
-        std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
-        std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
-
-        std::string msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
-        std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
-        
-        std::vector<unsigned char> nonce;
-        std::string hardcode_msg = "is_all_ok"; // ToDo, replace with a coherent message
-        std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce);
-        std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
-        std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-
-        response = get_simple_response(string_cipher_text, string_nonce); //ToDo, encrypt the whole message
-    }
-    else {
-        std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";
-    }
-   
-
-    if (response.empty())
-        return;
-
-    asio::async_write(*socket, asio::buffer(response),
-        [this, socket, client_id, response](const asio::error_code& ec, std::size_t /*length*//*) {
-            if (!ec) {
-                std::cout << "[Server] Client #" << client_id << " - Response sent: " << response << "\n";
-                handle_client(socket, client_id);
-            } else {
-                std::cerr << "[Server] Client #" << client_id << " - Write error: " << ec.message() << "\n";
-            }
-        });
-}*/
-
     
     else if (data["method"] == "simple_message") {
         std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
         std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
 
         std::string msg_clearly; 
-        
-    /*//--- MODIFICACION PARA SIMULAR ATAQUE ---
-        std::vector<unsigned char> received_ciphertext = hex_string_to_bin(data["message"]);
-        std::vector<unsigned char> received_nonce = hex_string_to_bin(data["nounce"]);
-
-        // Simular Tampering: Cambiar un byte del ciphertext
-        // Esto debería causar que la autenticación falle en decrypt_message
-        if (!received_ciphertext.empty()) {
-            std::cout << "[Server][TEST] Tampering with received ciphertext for testing purposes..." << std::endl;
-            // Invierte el primer byte del ciphertext.
-            received_ciphertext[0] = ~received_ciphertext[0];}
-
-        // Llamada a la nueva decrypt_message con el mensaje POTENCIALMENTE ALTERADO
-        if (!decrypt_message(session_keys_symetric_map[client_id].rx, 
-                             received_ciphertext, // ¡Pasamos el ciphertext alterado aquí!
-                             received_nonce, 
-                             msg_clearly)) {
-            std::cerr << "[Server] Client #" << client_id << " - [ANTI-TAMPERING] Authentication failed for simple_message. Closing connection." << "\n";
-            socket->close(); 
-            return; 
-        }
-        std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
-    
-    //--- MODIFICACION PARA SIMULAR ATAQUE ---*/
 
       // LLamada a la nueva decrypt_message y CHEQUEO DE SU RETORNO para autenticación
         if (!decrypt_message(session_keys_symetric_map[client_id].rx, // Usamos la clave de recepción
                              hex_string_to_bin(data["message"]), 
                              hex_string_to_bin(data["nounce"]), 
                              msg_clearly)) {
-            // Si decrypt_message devuelve 'false', la autenticación falló.
-            // Esto es una detección de Message Tampering.
+            // Si decrypt_message devuelve 'false', la autenticación falló. Esto es una detección de Message Tampering.
             std::cerr << "[Server] Client #" << client_id << " - [ANTI-TAMPERING] Authentication failed for simple_message. Closing connection." << "\n";
-            // ¡ACCIÓN CRUCIAL! Cierra la conexión inmediatamente para mitigar el ataque.
+            // Cierra la conexión inmediatamente para mitigar el ataque.
             socket->close(); 
             return; // Detener el procesamiento de este cliente, ya que la sesión está comprometida.
         }
         std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
         
-        // AÑADIDO: El servidor también encripta su respuesta
+        // El servidor también encripta su respuesta
         std::vector<unsigned char> nonce_server; // Nuevo nonce para el mensaje de respuesta del servidor
         std::string hardcode_msg = "is_all_ok"; // ToDo, reemplazar con un mensaje coherente
         
-        // Cifra la respuesta del servidor usando su clave 'tx' (transmisión)
         std::vector<unsigned char> ciphertext_server = encrypt_message(session_keys_symetric_map[client_id].tx, hardcode_msg, nonce_server);
         std::string string_cipher_text_server = bin_to_hex_string(ciphertext_server.data(), ciphertext_server.size());
         std::string string_nonce_server = bin_to_hex_string(nonce_server.data(), nonce_server.size());
 
-        response = get_simple_response(string_cipher_text_server, string_nonce_server); // ToDo, encriptar todo el mensaje si es necesario, pero el contenido ya va cifrado
+        response = get_simple_response(string_cipher_text_server, string_nonce_server); 
     }
     else {
         std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";

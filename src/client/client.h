@@ -5,6 +5,8 @@
 #include <nlohmann/json.hpp>
 #include <thread>
 #include <chrono>
+#include <set>
+#include <sodium.h>
 
 #include "socket_client.h"
 #include "../encryption/data_encryp.h"
@@ -31,6 +33,15 @@ public:
         return session_keys_symetric;
     }
     std::string get_device_id() const { return device_id; }
+    bool is_nonce_repeated(const std::string& nonce_hex) { //Valida nonce
+        if (received_nonces.count(nonce_hex)) {
+            std::cerr << "[Client][Security] ⚠ Nonce repetido detectado: " << nonce_hex << "\n";
+            return true;
+        }
+        received_nonces.insert(nonce_hex);
+        return false;
+    }
+
 
 private:
     SocketClient socket_client;
@@ -38,7 +49,8 @@ private:
     int nounce = 0;
     std::string device_id;
     SessionKeysAsymetric session_keys_asymetric;
-    SessionKeysSymetric session_keys_symetric;   
+    SessionKeysSymetric session_keys_symetric;
+    std::set<std::string> received_nonces; // para evitar duplicados
 };
 
 

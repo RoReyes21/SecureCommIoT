@@ -8,6 +8,8 @@
 #include <csignal>
 #include <nlohmann/json.hpp>
 #include <map>
+#include <unordered_set>
+#include <vector>
 #include <sodium.h>
 
 #include "../common/common.h"
@@ -23,7 +25,9 @@ public:
         SessionKeysAsymetric::auto_register_first_client();
     }
     void start() { start_accept(); }
-    int get_nounce() { return nounce++; }
+    int get_nonce() { return nonce++; }
+    std::vector<unsigned char> generate_unique_nonce(int client_id);
+
 
 private:
 
@@ -39,7 +43,9 @@ private:
     asio::io_context& io_;
     tcp::acceptor acceptor_;
     std::atomic<int> connection_counter_;
-    int nounce = 0;
+    int nonce = 0;
+    std::map<int, std::unordered_set<std::string>> used_nonces_map;
+
 
     SessionKeysAsymetric server_keys{"keys/server_keys.bin"};
     std::map<int, SessionKeysSymetric> session_keys_symetric_map;

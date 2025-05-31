@@ -59,6 +59,11 @@ bool Client::is_valid_response_from_server(std::string response) {
         is_valid = true;
     }
     else if (data["method"] == "conn_continue") {
+        if (is_nonce_repeated(data["nounce"])) {
+            std::cerr << "[Client][Security] ✗ Nonce duplicado. Mensaje descartado.\n";
+            return false;
+        }
+        
         std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
         std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
         is_valid = true;
@@ -147,8 +152,11 @@ int main(int argc, char* argv[]) {
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 
-        std::vector<unsigned char> nonce;
+        std::vector<unsigned char> nonce(crypto_aead_chacha20poly1305_IETF_NPUBBYTES);
+        randombytes_buf(nonce.data(), nonce.size());
+
         std::vector<unsigned char> ciphertext = encrypt_message(client.get_session_keys_symetric().tx, msg_to_server, nonce);
+
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());

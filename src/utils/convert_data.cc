@@ -43,58 +43,24 @@ std::vector<unsigned char> encrypt_message(const std::vector<unsigned char>& tx_
     return ciphertext;
 }
 
-/*std::string decrypt_message(const std::vector<unsigned char>& rx_key, const std::vector<unsigned char>& ciphertext, const std::vector<unsigned char>& nonce) {
-    
-    std::vector<unsigned char> decrypted(ciphertext.size() - crypto_aead_chacha20poly1305_IETF_ABYTES);
-    unsigned long long decrypted_len;
-
-    if (crypto_aead_chacha20poly1305_ietf_decrypt(
-            decrypted.data(), &decrypted_len,
-            nullptr,
-            ciphertext.data(), ciphertext.size(),
-            nullptr, 0,
-            nonce.data(), rx_key.data()) != 0) {
-        throw std::runtime_error("[ERROR] Decryption failed: Invalid ciphertext or nonce.");
-    }
-
-    return std::string(decrypted.begin(), decrypted.end());
-}*/
-
-// CAMBIO IMPORTANTE: Implementación de la nueva función decrypt_message
-bool decrypt_message(const std::vector<unsigned char>& rx_key, 
-                     const std::vector<unsigned char>& ciphertext, 
-                     const std::vector<unsigned char>& nonce, 
-                     std::string& decrypted_message_out) { // Parámetro de salida
-
-    // Validación de tamaño mínimo: el ciphertext debe contener al menos el tag de autenticación
+bool decrypt_message(const std::vector<unsigned char>& rx_key, const std::vector<unsigned char>& ciphertext, const std::vector<unsigned char>& nonce, std::string& decrypted_message_out) {
     if (ciphertext.size() < crypto_aead_chacha20poly1305_IETF_ABYTES) {
         std::cerr << "[ERROR] Decryption failed: Ciphertext too short to contain authentication tag." << std::endl;
-        decrypted_message_out = ""; // Asegurarse de que el buffer de salida esté vacío
-        return false; // Indicar fallo
-    }
+        decrypted_message_out = ""; 
+        return false;}
     
-    // El tamaño del buffer para el mensaje descifrado es el tamaño del ciphertext menos el tag
     std::vector<unsigned char> decrypted_buf(ciphertext.size() - crypto_aead_chacha20poly1305_IETF_ABYTES); 
     unsigned long long decrypted_len;
 
     // La función de descifrado autenticada. Su valor de retorno es CLAVE para la seguridad.
-    if (crypto_aead_chacha20poly1305_ietf_decrypt(
-                decrypted_buf.data(), &decrypted_len,
-                nullptr, // nsec (not used)
-                ciphertext.data(), ciphertext.size(),
-                nullptr, // ad (Additional Authenticated Data)
-                0,       // <--- ¡CORRECCIÓN AQUÍ! Longitud de AAD (0 porque 'ad' es nullptr)
-                nonce.data(),
-                rx_key.data()) != 0) {
+    if (crypto_aead_chacha20poly1305_ietf_decrypt( decrypted_buf.data(), &decrypted_len,
+        nullptr, ciphertext.data(), ciphertext.size(), nullptr, 0, nonce.data(),rx_key.data()) != 0) {
         
-        // Si el valor de retorno es distinto de 0, la autenticación (Poly1305) falló.
-        // Esto significa que el mensaje fue manipulado en tránsito o es incorrecto (clave, nonce, etc.).
+        // Si el valor de retorno es distinto de 0, la autenticación (Poly1305) falló, el mensaje fue manipulado en tránsito o es incorrecto (clave, nonce, etc.).
         std::cerr << "[SECURITY ALERT] Decryption failed: Message has been tampered with or invalid key/nonce! Discarding message." << std::endl;
-        decrypted_message_out = ""; // ¡CRÍTICO! Limpiar el buffer por seguridad, nunca usar datos no autenticados.
+        decrypted_message_out = ""; // Limpiar buffer por seguridad, nunca usar datos no autenticados.
         return false; // Indicar que la autenticación falló
     }
-
-    // Si llegamos aquí, la autenticación fue exitosa. El mensaje es auténtico e íntegro.
     decrypted_message_out.assign(reinterpret_cast<char*>(decrypted_buf.data()), decrypted_len);
     return true; // Indicar éxito
 }

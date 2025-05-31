@@ -2,6 +2,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 
 /**
  * @brief Creation of a new session keys, with Ed25519 and X25519 algorithm.

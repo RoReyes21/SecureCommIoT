@@ -43,22 +43,20 @@ std::vector<unsigned char> encrypt_message(const std::vector<unsigned char>& tx_
     return ciphertext;
 }
 
-bool decrypt_message(const std::vector<unsigned char>& rx_key, const std::vector<unsigned char>& ciphertext, const std::vector<unsigned char>& nonce, std::string& decrypted_message_out) {
-    if (ciphertext.size() < crypto_aead_chacha20poly1305_IETF_ABYTES) {
-        std::cerr << "[ERROR] Decryption failed: Ciphertext too short to contain authentication tag." << std::endl;
-        decrypted_message_out = ""; 
-        return false;}
+std::string decrypt_message(const std::vector<unsigned char>& rx_key, const std::vector<unsigned char>& ciphertext, const std::vector<unsigned char>& nonce) {
     
-    std::vector<unsigned char> decrypted_buf(ciphertext.size() - crypto_aead_chacha20poly1305_IETF_ABYTES); 
+    std::vector<unsigned char> decrypted(ciphertext.size() - crypto_aead_chacha20poly1305_IETF_ABYTES);
     unsigned long long decrypted_len;
 
-    if (crypto_aead_chacha20poly1305_ietf_decrypt( decrypted_buf.data(), &decrypted_len,
-        nullptr, ciphertext.data(), ciphertext.size(), nullptr, 0, nonce.data(),rx_key.data()) != 0) {
-        
-        std::cerr << "[SECURITY ALERT] Decryption failed: Message has been tampered with or invalid key/nonce! Discarding message." << std::endl;
-        decrypted_message_out = "";
-        return false;
+    if (crypto_aead_chacha20poly1305_ietf_decrypt(
+                decrypted.data(), &decrypted_len,
+                nullptr,
+                ciphertext.data(), ciphertext.size(),
+                nullptr, 0,
+                nonce.data(), rx_key.data()) != 0) {
+        throw std::runtime_error("[ANTI-TAMPERING] Decryption failed: Message has been tampered with or authentication failed.");
     }
-    decrypted_message_out.assign(reinterpret_cast<char*>(decrypted_buf.data()), decrypted_len);
-    return true;
+
+    decrypted.resize(decrypted_len);
+    return std::string(decrypted.begin(), decrypted.end());
 }

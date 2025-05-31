@@ -3,6 +3,15 @@
 #include "../common/common.h"
 #include "../utils/convert_data.h"
 #include "messages.h"
+#include <sodium.h>
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <iterator>
+
+#define CLIENT_PRIVKEY_PATH "src/client/keys/client_sk"
+#define CLIENT_PUBKEY_PATH "src/client/keys/client_pk"
+#define SERVER_PUBKEY_PATH "src/client/keys/server_pk"
 
 bool Client::validate_signature(json data) {
 
@@ -94,6 +103,15 @@ bool Client::establish_secure_connection_with_server() {
     return true;
 }
 
+bool load_key(const std::string& path, unsigned char* key, size_t length) { // Cargar claves
+    std::ifstream file(path, std::ios::binary);
+    if (!file.read(reinterpret_cast<char*>(key), length)) {
+        std::cerr << "[ERROR] Cannot read key file: " << path << std::endl;
+        return false;
+    }
+    return true;
+}
+
 int main() {
     Client client("127.0.0.1", "8080");
 
@@ -101,6 +119,23 @@ int main() {
         std::cerr << "[ERROR] Could not establish a secure connection with server." << "\n";
         return 1;
     }
+
+    if (sodium_init() < 0) {
+        std::cerr << "[ERROR] Libsodium failed to initialize\n";
+        return 1;
+    }
+
+    unsigned char client_sk[crypto_sign_SECRETKEYBYTES];
+    unsigned char client_pk[crypto_sign_PUBLICKEYBYTES];
+    unsigned char server_pk[crypto_sign_PUBLICKEYBYTES];
+
+    if (!load_key(CLIENT_PRIVKEY_PATH, client_sk, sizeof(client_sk)) ||
+        !load_key(CLIENT_PUBKEY_PATH, client_pk, sizeof(client_pk)) ||
+        !load_key(SERVER_PUBKEY_PATH, server_pk, sizeof(server_pk))) {
+        std::cerr << "[ERROR] Key loading failed\n";
+        return 1;
+    }
+    
 
     while (true) {
         std::cout << "[Client][Input] Write simple message: ";

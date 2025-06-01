@@ -34,6 +34,9 @@ public:
     static std::string generate_device_auth_challenge();
     static bool verify_device_response(const std::string& challenge, const std::string& response, 
                                       const std::string& public_key_hex);
+    static bool is_device_id_registered_with_different_keys(const std::string& device_id, 
+                                                           const std::string& public_key_hex, 
+                                                           const std::string& long_term_public_key_hex);
 
     unsigned char public_key[crypto_kx_PUBLICKEYBYTES];
     unsigned char private_key[crypto_kx_SECRETKEYBYTES];

@@ -8,7 +8,7 @@
 
 using Json = nlohmann::json;
 
-std::string get_hello_message(std::string device_id, int nounce, std::string public_key, std::string long_term_public_key, std::string signature) {
+std::string get_hello_message(std::string device_id, std::string nounce, std::string public_key, std::string long_term_public_key, std::string signature) {
 
     Json hello_msg = {
         {"method", "HelloFIUNAM"},
@@ -21,7 +21,7 @@ std::string get_hello_message(std::string device_id, int nounce, std::string pub
     return hello_msg.dump() + END_OF_MESSAGE;
 }
 
-std::string get_agree_params_message(std::string algorithm, int nounce) {
+std::string get_agree_params_message(std::string algorithm, std::string nounce) {
     Json agree_params = {
         {"method", "AgreeParams"},
         {"algorithm", algorithm},

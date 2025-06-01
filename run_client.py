@@ -11,7 +11,7 @@ def signal_handler(sig, frame):
 
 def ensure_directories():
     """Ensure required directories exist"""
-    directories = ["keys", "config", "bin/linux", "bin/windows", "bin/macos"]
+    directories = ["keys", "config", "logs", "bin/linux", "bin/windows", "bin/macos"]
     for directory in directories:
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -39,11 +39,14 @@ def compile_client():
 
     compile_cmd = ""
     if system == "Linux":
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -pthread -lsodium -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/hash_utils.cc src/utils/convert_data.cc src/utils/logger.cc -Iasio/include -pthread -lsodium -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/hash_utils.cc src/utils/convert_data.cc src/utils/logger.cc -Iasio/include -Iinclude -D_WIN32_WINNT=0x0601 -o {binary} -lsodium -lws2_32 -lmswsock"
     elif system == "Darwin":  # macOS
-        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/convert_data.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
+        compile_cmd = f"g++ src/client/client.cc src/client/socket_client.cc src/encryption/data_encryp.cc src/utils/hash_utils.cc src/utils/convert_data.cc src/utils/logger.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
+    else:
+        print("Operative system is not supported.")
+        return
 
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)
@@ -66,19 +69,15 @@ def run_client():
         print("The binary was not found. Run the compilation first")
         return
 
-    print(f"Running client: {bin_path}")
+    # Preguntar por el device_id
+    device_id = input("Enter device ID (or press Enter for auto-generated): ").strip()
     
-    # Generar device ID automático si no se especifica
-    default_id = f"device_{random.randint(1000, 9999)}"
-    device_id = input(f"Enter device ID (or press Enter for '{default_id}'): ").strip()
-    if not device_id:
-        device_id = default_id
-    
-    print(f"Starting client with device ID: {device_id}")
-    print("Note: Each client will have unique keys and register automatically")
-    
-    # Pasar device_id como argumento al programa C++
-    subprocess.run([bin_path, device_id])
+    if device_id:
+        print(f"Running client: {bin_path} {device_id}")
+        subprocess.run([bin_path, device_id], shell=False)
+    else:
+        print(f"Running client: {bin_path}")
+        subprocess.run(bin_path, shell=True)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

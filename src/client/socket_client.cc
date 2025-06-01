@@ -1,4 +1,5 @@
 #include "socket_client.h"
+#include "../utils/logger.h"
 
 SocketClient::SocketClient(const std::string& host, const std::string& port) : io_(), socket_(io_) {
 
@@ -6,18 +7,20 @@ SocketClient::SocketClient(const std::string& host, const std::string& port) : i
         tcp::resolver resolver(io_);
         auto endpoints = resolver.resolve(host, port);
         asio::connect(socket_, endpoints);
-        std::cout << "[Socket] Connected to the server\n";
+        LOG_INFO("Connected to server at " + host + ":" + port);
     } catch (const std::exception& e) {
-        std::cerr << "[Socket] Connection error: " << e.what() << "\n";
+        LOG_ERROR("Connection error: " + std::string(e.what()));
+        CONSOLE_ONLY("[Client] ✗ Failed to connect to server");
     }
 }
 
 void SocketClient::send_message(const std::string& message) {
     try {
         asio::write(socket_, asio::buffer(message));
-        std::cout << "[Socket] Sent to server: " << message << "\n";
+        LOG_INFO("Message sent to server: " + message);
     } catch (const std::exception& e) {
-        std::cerr << "[Socket] Send error: " << e.what() << "\n";
+        LOG_ERROR("Send error: " + std::string(e.what()));
+        CONSOLE_ONLY("[Client] ✗ Failed to send message");
     }
 }
 
@@ -27,6 +30,6 @@ std::string SocketClient::receive_message() {
     std::istream is(&buffer);
     std::string line;
     std::getline(is, line);
-    std::cout << "[Socket] Receive message from server: " << line << "\n";
+    LOG_INFO("Message received from server: " + line);
     return line;
 }

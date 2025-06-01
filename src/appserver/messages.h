@@ -7,7 +7,7 @@
 
 using Json = nlohmann::json;
 
-std::string get_whats_up_message(std::string device_id, int nounce, std::string public_key, std::string long_term_public_key, std::string signature) {
+std::string get_whats_up_message(std::string device_id, std::string nounce, std::string public_key, std::string long_term_public_key, std::string signature) {
     Json whats_msg = {
         {"method", "WhatsUpFIUNAM"},
         {"server_ID", device_id},
@@ -19,7 +19,7 @@ std::string get_whats_up_message(std::string device_id, int nounce, std::string 
     return whats_msg.dump() + END_OF_MESSAGE;
 }
 
-std::string get_start_secure_conversartion_message(std::string is_ok, int nounce) {
+std::string get_start_secure_conversartion_message(std::string is_ok, std::string nounce) {
     Json start_message = {
         {"method", "StartConversation"},
         {"OK", is_ok},

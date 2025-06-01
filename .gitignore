@@ -35,5 +35,10 @@
 # Files
 bin/
 
+# Key files and config
+keys/*.bin
+config/*.txt
+logs/*.log
+
 #others
 *.vscode

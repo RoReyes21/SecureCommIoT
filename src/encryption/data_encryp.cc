@@ -101,14 +101,20 @@ void SessionKeysAsymetric::auto_register_first_client() {
     if (!std::filesystem::exists("config/trusted_clients.txt")) {
         std::cout << "[Info] First run detected, creating default client keys...\n";
         
-        SessionKeysAsymetric default_client;
-        default_client.save_keys_to_file("keys/client_keys.bin");
-        
-        register_client_public_key("default_client", 
-                                 default_client.export_public_key_hex(),
-                                 default_client.export_long_term_public_key_hex());
-        
-        std::cout << "[Info] Default client registered and keys saved\n";
+        // Generar múltiples clientes por defecto
+        for (int i = 1; i <= 3; i++) {
+            std::string client_id = "client" + std::to_string(i);
+            std::string key_file = "keys/" + client_id + "_keys.bin";
+            
+            SessionKeysAsymetric client_keys;
+            client_keys.save_keys_to_file(key_file);
+            
+            register_client_public_key(client_id, 
+                                     client_keys.export_public_key_hex(),
+                                     client_keys.export_long_term_public_key_hex());
+            
+            std::cout << "[Info] Default " << client_id << " registered and keys saved to " << key_file << "\n";
+        }
     }
 }
 
@@ -180,11 +186,8 @@ bool SessionKeysAsymetric::is_client_registered(const std::string& public_key_he
     return false;
 }
 
-bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& device_id, 
-                                                          const std::string& public_key_hex, 
-                                                          const std::string& long_term_public_key_hex,
-                                                          const std::string& auth_token) {
-    // Verificar si ya está registrado
+bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& device_id, const std::string& public_key_hex, const std::string& long_term_public_key_hex,
+                                                            const std::string& auth_token) {
     if (is_client_registered(public_key_hex, long_term_public_key_hex)) {
         std::cout << "[Auth] Device " << device_id << " already trusted\n";
         return true;
@@ -204,12 +207,53 @@ bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& d
     }
     
     if (is_authorized) {
+        // Verificar que no sea un dispositivo duplicado con el mismo device_id pero claves diferentes
+        if (is_device_id_registered_with_different_keys(device_id, public_key_hex, long_term_public_key_hex)) {
+            std::cout << "[Auth] WARNING: Device " << device_id << " already exists with different keys. Possible impersonation attempt.\n";
+            return false;
+        }
+        
         if (register_client_public_key(device_id, public_key_hex, long_term_public_key_hex)) {
             std::cout << "[Auth] Device " << device_id << " successfully authenticated and registered as TRUSTED\n";
             return true;
         }
     }
     
+    return false;
+}
+
+bool SessionKeysAsymetric::is_device_id_registered_with_different_keys(const std::string& device_id, 
+                                                                      const std::string& public_key_hex, 
+                                                                      const std::string& long_term_public_key_hex) {
+    std::ifstream file("config/trusted_clients.txt");
+    if (!file.is_open()) {
+        return false;
+    }
+    
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        
+        size_t first_pipe = line.find('|');
+        size_t second_pipe = line.find('|', first_pipe + 1);
+        
+        if (first_pipe != std::string::npos && second_pipe != std::string::npos) {
+            std::string stored_device_id = line.substr(0, first_pipe);
+            std::string stored_public_key = line.substr(first_pipe + 1, second_pipe - first_pipe - 1);
+            std::string stored_long_term_key = line.substr(second_pipe + 1);
+            
+            // Si encontramos el mismo device_id pero con claves diferentes
+            if (stored_device_id == device_id && 
+                (stored_public_key != public_key_hex || stored_long_term_key != long_term_public_key_hex)) {
+                file.close();
+                return true;
+            }
+        }
+    }
+    
+    file.close();
     return false;
 }
 

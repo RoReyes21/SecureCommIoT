@@ -180,11 +180,8 @@ bool SessionKeysAsymetric::is_client_registered(const std::string& public_key_he
     return false;
 }
 
-bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& device_id, 
-                                                          const std::string& public_key_hex, 
-                                                          const std::string& long_term_public_key_hex,
-                                                          const std::string& auth_token) {
-    // Verificar si ya está registrado
+bool SessionKeysAsymetric::authenticate_and_register_device(const std::string& device_id, const std::string& public_key_hex, const std::string& long_term_public_key_hex,
+                                                            const std::string& auth_token) {
     if (is_client_registered(public_key_hex, long_term_public_key_hex)) {
         std::cout << "[Auth] Device " << device_id << " already trusted\n";
         return true;

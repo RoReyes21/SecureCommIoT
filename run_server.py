@@ -10,7 +10,7 @@ def signal_handler(sig, frame):
 
 def ensure_directories():
     """Ensure required directories exist"""
-    directories = ["keys", "config", "bin/linux", "bin/windows", "bin/macos"]
+    directories = ["keys", "config", "logs", "bin/linux", "bin/windows", "bin/macos"]
     for directory in directories:
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -38,12 +38,14 @@ def compile_server():
 
     compile_cmd = ""
     if system == "Linux":
-        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/logger.cc src/encryption/data_encryp.cc -Iasio/include -lsodium -pthread -o {binary}"
     elif system == "Windows":
-        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -Iasio/include -o {binary}"
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/logger.cc src/encryption/data_encryp.cc -Iasio/include -Iinclude -D_WIN32_WINNT=0x0601 -o {binary} -lsodium -lws2_32 -lmswsock"
     elif system == "Darwin":  # macOS
-        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/encryption/data_encryp.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
-
+        compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/logger.cc src/encryption/data_encryp.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
+    else:
+        print("Operative system is not supported.")
+        return
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)
 
@@ -66,7 +68,7 @@ def run_server():
         return
 
     print(f"Running server: {bin_path}")
-    subprocess.run(bin_path, shell=True)
+    subprocess.run([f"./{bin_path}"], shell=False)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

@@ -36,6 +36,8 @@ bool Client::is_valid_response_from_server(std::string response) {
     std::size_t fin_pos = response.find(END_OF_MESSAGE);
     if (fin_pos == std::string::npos) {
         std::cerr << "[ERROR]: The " << END_OF_MESSAGE << " delimiter was not found in the response." << "\n";
+        if (response.empty()) {
+            std::cerr << "[ERROR] Received empty response, server might have closed the connection.\n";}
         return is_valid;
     }
 
@@ -58,11 +60,37 @@ bool Client::is_valid_response_from_server(std::string response) {
         std::cout << "Server nounce: " << data["nounce"] << "\n";
         is_valid = true;
     }
+
     else if (data["method"] == "conn_continue") {
-        std::string  msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
-        std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
-        is_valid = true;
+        try {
+            std::string msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+            std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
+            is_valid = true;
+        } catch (const std::runtime_error& e) {
+            std::cerr << "[SECURITY ALERT - CLIENT] Decryption failed for server message: " << e.what() << "\n";
+            std::cerr << "[SECURITY ALERT - CLIENT] Server message might have been tampered with. Closing connection.\n";
+            is_valid = false;
+        }
     }
+
+    //MODIFICACION - SIMULACION DE ATAQUE MESSAGE TAMPERING
+    /*else if (data["method"] == "conn_continue") {
+        std::string msg_clearly; 
+        std::vector<unsigned char> received_ciphertext = hex_string_to_bin(data["message"]);
+        std::vector<unsigned char> received_nonce = hex_string_to_bin(data["nounce"]);
+        if (!received_ciphertext.empty()) {
+            std::cout << "[Client][ATTACK SIMULATION] Tampering with received ciphertext from server for testing purposes..." << std::endl;
+            received_ciphertext[0] = ~received_ciphertext[0];
+            std::cout << "[Client][ATTACK SIMULATION] Ciphertext modified. Expecting decryption failure." << std::endl;}
+        try {
+            msg_clearly = decrypt_message(session_keys_symetric.rx,received_ciphertext, received_nonce);
+            std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
+            is_valid = true;
+        } catch (const std::runtime_error& e) {
+            std::cerr << "[SECURITY ALERT - CLIENT] Decryption failed for server message: " << e.what() << "\n";
+            std::cerr << "[SECURITY ALERT - CLIENT] Server message might have been tampered with. Exiting connection.\n";
+            is_valid = false;}
+    }*/
 
     return is_valid;
 }
@@ -157,8 +185,9 @@ int main(int argc, char* argv[]) {
         std::string response = client.receive_message();
 
         if (!client.is_valid_response_from_server(response)) {
-            return 0;
-        }
+            std::cerr << "[Client] Exiting due to invalid or tampered server response.\n";
+            break; }
+
     }
 
     client.stop_socket();

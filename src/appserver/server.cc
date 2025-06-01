@@ -29,12 +29,18 @@ bool Server::authenticate_new_device(int client_id, json data) {
     std::string auth_token = data.value("auth_token", "");
     
     LOG_INFO("Authenticating device: " + device_id + " for client #" + std::to_string(client_id));
+    LOG_INFO("Public key (first 16 chars): " + public_key_hex.substr(0, 16) + "...");
+    LOG_INFO("Long-term key (first 16 chars): " + long_term_public_key_hex.substr(0, 16) + "...");
     
     bool result = SessionKeysAsymetric::authenticate_and_register_device(
         device_id, public_key_hex, long_term_public_key_hex, auth_token);
     
     LOG_INFO("Device authentication result for " + device_id + ": " + 
              std::string(result ? "SUCCESS" : "FAILED"));
+    
+    if (result) {
+        LOG_INFO("Device " + device_id + " added to trusted clients list");
+    }
     
     return result;
 }

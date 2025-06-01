@@ -69,8 +69,15 @@ def run_client():
         print("The binary was not found. Run the compilation first")
         return
 
-    print(f"Running client: {bin_path}")
-    subprocess.run(bin_path, shell=True)
+    # Preguntar por el device_id
+    device_id = input("Enter device ID (or press Enter for auto-generated): ").strip()
+    
+    if device_id:
+        print(f"Running client: {bin_path} {device_id}")
+        subprocess.run([bin_path, device_id], shell=False)
+    else:
+        print(f"Running client: {bin_path}")
+        subprocess.run(bin_path, shell=True)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

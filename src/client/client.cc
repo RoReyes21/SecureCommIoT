@@ -156,6 +156,11 @@ int main(int argc, char* argv[]) {
     
     if (argc > 1) {
         device_id = argv[1];
+    } else {
+        // Generar device_id único basado en timestamp si no se proporciona
+        auto now = std::chrono::system_clock::now();
+        auto timestamp = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+        device_id = "client_" + std::to_string(timestamp % 10000);
     }
     
     CONSOLE_ONLY("[Client] Starting client with device ID: " + device_id);
@@ -173,7 +178,7 @@ int main(int argc, char* argv[]) {
     CONSOLE_ONLY("Type your messages below (Ctrl+C to exit):");
 
     while (true) {
-        std::cout << "\n> ";
+        std::cout << "\n[" + device_id + "] > ";
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
 

@@ -76,16 +76,18 @@ bool Server::validate_signature(int client_id, json data) {
             std::cout << "[Server] Client #" << client_id << " successfully authenticated and added to trusted list\n";
         } else {
             std::cerr << "[Error] Client #" << client_id << " authentication FAILED - Connection rejected\n";
-            client_sockets[client_id]->close();
-            client_sockets.erase(client_id);
+            if (client_sockets.count(client_id)) {
+                client_sockets[client_id]->close();
+                client_sockets.erase(client_id);}
             return false;
         }
     }
 
     if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
         std::cerr << "[Error] Invalid signature from Client #" << client_id << "\n";
-        client_sockets[client_id]->close();
-        client_sockets.erase(client_id);
+        if (client_sockets.count(client_id)) {
+            client_sockets[client_id]->close();
+            client_sockets.erase(client_id);}
         return false;
     }
 
@@ -139,11 +141,7 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         if (handle_device_registration_request(client_id, data, socket)) {
             std::cout << "[Server] Client #" << client_id << " - Registration completed, awaiting HelloFIUNAM\n";
             return;
-        } else {
-            client_sockets[client_id]->close();
-            client_sockets.erase(client_id);
-            return;
-        }
+        } else {return;}
     }
     else if (data["method"] == "AgreeParams") {
         std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
@@ -151,9 +149,11 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         if (data["algorithm"] == "ChaCha20")
             response = get_start_secure_conversartion_message("ok", get_nounce());
         else {
-            client_sockets[client_id]->close();
-            client_sockets.erase(client_id);
+            if (client_sockets.count(client_id)) {
+                client_sockets[client_id]->close();
+                client_sockets.erase(client_id);}
             std::cout << "[Server] Client #" << client_id << " - Closed connection due to unsupported algorithm: " << data["algorithm"] <<" \n";
+            return;
         }
     }
     else if (data["method"] == "simple_message") {
@@ -166,34 +166,49 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
             hex_string_to_bin(data["message"]),
             hex_string_to_bin(data["nounce"])
         );
+    
+        std::string msg_clearly;
+        try {
+            msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
+            // Verificar integridad
+            std::vector<unsigned char> decrypted_bytes(msg_clearly.begin(), msg_clearly.end());
+            std::string computed_hash = sha256_hex(decrypted_bytes);
+            std::string received_hash = data.value("sha256", "");
 
-        // Verificar integridad
-        std::vector<unsigned char> decrypted_bytes(decrypted.begin(), decrypted.end());
-        std::string computed_hash = sha256_hex(decrypted_bytes);
-        std::string received_hash = data.value("sha256", "");
+            if (computed_hash != received_hash) {
+                std::cerr << "[Server] Client #" << client_id << " - SHA-256 mismatch! Possible tampering.\n";
+                return; // Abort handling this message
+            }
 
-        if (computed_hash != received_hash) {
-            std::cerr << "[Server] Client #" << client_id << " - SHA-256 mismatch! Possible tampering.\n";
-            return; // Abort handling this message
+            std::cout << "[Server] Client #" << client_id << " - Decrypted and verified message: " << msg_clearly << "\n";
+            
+            std::vector<unsigned char> nonce_response; 
+            // Generar fecha actual (UTC)
+            std::time_t now = std::time(nullptr);
+            std::tm* now_tm = std::gmtime(&now);
+            std::ostringstream oss;
+            oss << "ACK: message verified successfully at "
+                << std::put_time(now_tm, "%Y-%m-%d %H:%M:%S UTC");
+
+            std::string server_response_msg = oss.str();
+            std::vector<unsigned char> ciphertext_response = encrypt_message(session_keys_symetric_map[client_id].tx, server_response_msg, nonce_response);
+            std::string string_cipher_text_response = bin_to_hex_string(ciphertext_response.data(), ciphertext_response.size());
+            std::string string_nonce_response = bin_to_hex_string(nonce_response.data(), nonce_response.size());
+
+            response = get_simple_response(string_cipher_text_response, string_nonce_response);
+
+        } catch (const std::runtime_error& e) {
+            std::cerr << "[SECURITY ALERT] Client #" << client_id << " - " << e.what() << "\n";
+            std::cerr << "[ANTI-TAMPERING] Closing connection with Client #" << client_id << " due to message tampering.\n";
+            
+            if (client_sockets.count(client_id)) {
+                socket->close(); 
+                session_keys_asymetric_map.erase(client_id);
+                session_keys_symetric_map.erase(client_id);
+                client_sockets.erase(client_id);
+            }
+            return; 
         }
-
-        std::cout << "[Server] Client #" << client_id << " - Decrypted and verified message: " << decrypted << "\n";
-
-        // Preparar respuesta
-        std::vector<unsigned char> nonce;
-        // Generar fecha actual (UTC)
-        std::time_t now = std::time(nullptr);
-        std::tm* now_tm = std::gmtime(&now);
-        std::ostringstream oss;
-        oss << "ACK: message verified successfully at "
-            << std::put_time(now_tm, "%Y-%m-%d %H:%M:%S UTC");
-
-        std::string server_response_msg = oss.str();
-        std::vector<unsigned char> ciphertext = encrypt_message(session_keys_symetric_map[client_id].tx, server_response_msg, nonce);
-        std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
-        std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-
-        response = get_simple_response(string_cipher_text, string_nonce);
     }
     else {
         std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";

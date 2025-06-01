@@ -43,7 +43,9 @@ def compile_server():
         compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/hash_utils.cc src/encryption/data_encryp.cc -Iasio/include -o {binary}"
     elif system == "Darwin":  # macOS
         compile_cmd = f"g++ src/appserver/server.cc src/utils/convert_data.cc src/utils/hash_utils.cc src/encryption/data_encryp.cc -o {binary} -std=c++17 -I/opt/homebrew/include -L/opt/homebrew/lib -lsodium"
-
+    else:
+        print("Operative system is not supported.")
+        return
     print(f"Compiling: {compile_cmd}")
     subprocess.run(compile_cmd, shell=True, check=True)
 
@@ -66,7 +68,7 @@ def run_server():
         return
 
     print(f"Running server: {bin_path}")
-    subprocess.run(bin_path, shell=True)
+    subprocess.run([f"./{bin_path}"], shell=False)
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)

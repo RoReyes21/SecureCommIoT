@@ -49,13 +49,14 @@ std::string decrypt_message(const std::vector<unsigned char>& rx_key, const std:
     unsigned long long decrypted_len;
 
     if (crypto_aead_chacha20poly1305_ietf_decrypt(
-            decrypted.data(), &decrypted_len,
-            nullptr,
-            ciphertext.data(), ciphertext.size(),
-            nullptr, 0,
-            nonce.data(), rx_key.data()) != 0) {
-        throw std::runtime_error("[ERROR] Decryption failed: Invalid ciphertext or nonce.");
+                decrypted.data(), &decrypted_len,
+                nullptr,
+                ciphertext.data(), ciphertext.size(),
+                nullptr, 0,
+                nonce.data(), rx_key.data()) != 0) {
+        throw std::runtime_error("[ANTI-TAMPERING] Decryption failed: Message has been tampered with or authentication failed.");
     }
 
+    decrypted.resize(decrypted_len);
     return std::string(decrypted.begin(), decrypted.end());
 }

@@ -2,18 +2,22 @@
 
 #include "messages.h"
 #include "../utils/convert_data.h"
+#include "../utils/logger.h"
 
 asio::io_context io;
 
 void handle_signal(const asio::error_code& error, int signal_number) {
     if (!error) {
-        std::cout << "[INFO] Signal " << signal_number << " received, stopping server...\n";
+        LOG_INFO("Signal " + std::to_string(signal_number) + " received, stopping server...");
+        CONSOLE_ONLY("[INFO] Server shutting down...");
         io.stop();
     }
 }
 
 bool Server::is_client_trusted(const std::string& public_key_hex, const std::string& long_term_public_key_hex) {
-    return SessionKeysAsymetric::is_client_registered(public_key_hex, long_term_public_key_hex);
+    bool is_trusted = SessionKeysAsymetric::is_client_registered(public_key_hex, long_term_public_key_hex);
+    LOG_INFO("Client trust check - Result: " + std::string(is_trusted ? "TRUSTED" : "NOT_TRUSTED"));
+    return is_trusted;
 }
 
 bool Server::authenticate_new_device(int client_id, json data) {
@@ -22,14 +26,21 @@ bool Server::authenticate_new_device(int client_id, json data) {
     std::string long_term_public_key_hex = data.value("long_term_public_key_hex", "");
     std::string auth_token = data.value("auth_token", "");
     
-    return SessionKeysAsymetric::authenticate_and_register_device(
+    LOG_INFO("Authenticating device: " + device_id + " for client #" + std::to_string(client_id));
+    
+    bool result = SessionKeysAsymetric::authenticate_and_register_device(
         device_id, public_key_hex, long_term_public_key_hex, auth_token);
+    
+    LOG_INFO("Device authentication result for " + device_id + ": " + 
+             std::string(result ? "SUCCESS" : "FAILED"));
+    
+    return result;
 }
 
 bool Server::handle_device_registration_request(int client_id, json data, std::shared_ptr<tcp::socket> socket) {
     std::string device_id = data.value("device_ID", "unknown");
     
-    std::cout << "[Server] Device registration request from " << device_id << "\n";
+    LOG_COMMUNICATION("[Server] Device registration request from " + device_id);
     
     if (authenticate_new_device(client_id, data)) {
 
@@ -43,7 +54,8 @@ bool Server::handle_device_registration_request(int client_id, json data, std::s
         std::string response = approval_response.dump() + END_OF_MESSAGE;
         asio::write(*socket, asio::buffer(response));
         
-        std::cout << "[Server] Client #" << client_id << " - Device " << device_id << " registration APPROVED\n";
+        LOG_COMMUNICATION("[Server] Client #" + std::to_string(client_id) + 
+                         " - Device " + device_id + " registration APPROVED");
         return true;
     } else {
 
@@ -57,7 +69,8 @@ bool Server::handle_device_registration_request(int client_id, json data, std::s
         std::string response = rejection_response.dump() + END_OF_MESSAGE;
         asio::write(*socket, asio::buffer(response));
         
-        std::cout << "[Server] Client #" << client_id << " Device " << device_id << " registration REJECTED\n";
+        LOG_SECURITY("Client #" + std::to_string(client_id) + 
+                    " Device " + device_id + " registration REJECTED");
         return false;
     }
 }
@@ -68,12 +81,15 @@ bool Server::validate_signature(int client_id, json data) {
     std::vector<unsigned char> long_term_public_key_bin = hex_string_to_bin(data["long_term_public_key_hex"]);
 
     if (!is_client_trusted(data["public_key_hex"], data["long_term_public_key_hex"])) {
-        std::cout << "[Server] Client #" << client_id << " not in trusted list, attempting authentication...\n";
+        LOG_SECURITY("Client #" + std::to_string(client_id) + 
+                    " not in trusted list, attempting authentication...");
         
         if (authenticate_new_device(client_id, data)) {
-            std::cout << "[Server] Client #" << client_id << " successfully authenticated and added to trusted list\n";
+            LOG_SECURITY("Client #" + std::to_string(client_id) + 
+                        " successfully authenticated and added to trusted list");
         } else {
-            std::cerr << "[Error] Client #" << client_id << " authentication FAILED - Connection rejected\n";
+            LOG_ERROR("Client #" + std::to_string(client_id) + 
+                     " authentication FAILED - Connection rejected");
             if (client_sockets.count(client_id)) {
                 client_sockets[client_id]->close();
                 client_sockets.erase(client_id);}
@@ -82,7 +98,7 @@ bool Server::validate_signature(int client_id, json data) {
     }
 
     if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
-        std::cerr << "[Error] Invalid signature from Client #" << client_id << "\n";
+        LOG_ERROR("Invalid signature from Client #" + std::to_string(client_id));
         if (client_sockets.count(client_id)) {
             client_sockets[client_id]->close();
             client_sockets.erase(client_id);}
@@ -99,7 +115,8 @@ bool Server::validate_signature(int client_id, json data) {
         true
     )}); 
 
-    std::cout << "[Server] Client #" << client_id << " - TRUSTED CLIENT - Unique session keys generated\n";
+    LOG_COMMUNICATION("[Server] Client #" + std::to_string(client_id) + 
+                     " - TRUSTED CLIENT - Unique session keys generated");
     return true;
 }
 
@@ -107,7 +124,7 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
 
     std::size_t fin_pos = message.find(END_OF_MESSAGE);
     if (fin_pos == std::string::npos) {
-        std::cerr << "[ERROR]: The " << END_OF_MESSAGE << " delimiter was not found in the response." << "\n";
+        LOG_ERROR("The " + std::string(END_OF_MESSAGE) + " delimiter was not found in the response.");
         return;
     }
 
@@ -117,13 +134,14 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
     try {
         data = json::parse(json_message);
     } catch (json::parse_error& e) {
-        std::cerr << "[ERROR] Json could not be parsed: " << e.what() << "\n";
+        LOG_ERROR("Json could not be parsed: " + std::string(e.what()));
     }
 
     std::string response;
 
     if (data["method"] == "HelloFIUNAM") {
-        std::cout << "[Server] Client #" << client_id << " - Received of a request to establish a secure connection\n";
+        LOG_COMMUNICATION("[Server] Client #" + std::to_string(client_id) + 
+                         " - Received request to establish secure connection");
 
         if (!validate_signature(client_id, data))
             return;        
@@ -135,14 +153,15 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
     }
     else if (data["method"] == "RequestRegistration") {
 
-        std::cout << "[Server] Client #" << client_id << " - Device registration request\n";
+        LOG_INFO("Client #" + std::to_string(client_id) + " - Device registration request");
         if (handle_device_registration_request(client_id, data, socket)) {
-            std::cout << "[Server] Client #" << client_id << " - Registration completed, awaiting HelloFIUNAM\n";
+            LOG_INFO("Client #" + std::to_string(client_id) + " - Registration completed, awaiting HelloFIUNAM");
             return;
         } else {return;}
     }
     else if (data["method"] == "AgreeParams") {
-        std::cout << "[Server] Client #" << client_id << " - Received of a parameters to establish a secure connection\n";
+        LOG_COMMUNICATION("[Server] Client #" + std::to_string(client_id) + 
+                         " - Received parameters to establish secure connection");
 
         if (data["algorithm"] == "ChaCha20")
             response = get_start_secure_conversartion_message("ok", get_nounce());
@@ -150,18 +169,23 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
             if (client_sockets.count(client_id)) {
                 client_sockets[client_id]->close();
                 client_sockets.erase(client_id);}
-            std::cout << "[Server] Client #" << client_id << " - Closed connection due to unsupported algorithm: " << data["algorithm"] <<" \n";
+            LOG_WARNING("Client #" + std::to_string(client_id) + 
+                       " - Closed connection due to unsupported algorithm: " + 
+                       std::string(data["algorithm"]));
             return;
         }
     }
     else if (data["method"] == "simple_message") {
-        std::cout << "[Server] Client #" << client_id << " - Received simple message crypted: " << data["message"] << "\n";
-        std::cout << "[Server] Client #" << client_id << " - Nounce: " << data["nounce"] << "\n";
+        LOG_INFO("Client #" + std::to_string(client_id) + 
+                " - Received simple message crypted: " + std::string(data["message"]));
+        LOG_INFO("Client #" + std::to_string(client_id) + 
+                " - Nounce: " + std::string(data["nounce"]));
 
         std::string msg_clearly;
         try {
             msg_clearly = decrypt_message(session_keys_symetric_map[client_id].rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
-            std::cout << "[Server] Client #" << client_id << " - Decrypted message: " << msg_clearly << "\n";
+            LOG_COMMUNICATION("[Server] Client #" + std::to_string(client_id) + 
+                             " - Decrypted message: " + msg_clearly);
             
             std::vector<unsigned char> nonce_response; 
             std::string hardcode_msg = "is_all_ok";
@@ -172,8 +196,10 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
             response = get_simple_response(string_cipher_text_response, string_nonce_response);
 
         } catch (const std::runtime_error& e) {
-            std::cerr << "[SECURITY ALERT] Client #" << client_id << " - " << e.what() << "\n";
-            std::cerr << "[ANTI-TAMPERING] Closing connection with Client #" << client_id << " due to message tampering.\n";
+            LOG_SECURITY("SECURITY ALERT - Client #" + std::to_string(client_id) + 
+                        " - " + std::string(e.what()));
+            LOG_SECURITY("ANTI-TAMPERING - Closing connection with Client #" + 
+                        std::to_string(client_id) + " due to message tampering.");
             
             if (client_sockets.count(client_id)) {
                 socket->close(); 
@@ -185,7 +211,8 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
         }
     }
     else {
-        std::cerr << "[Server] Client #" << client_id << " - Unknown message: " << data << "\n";
+        LOG_WARNING("Client #" + std::to_string(client_id) + 
+                   " - Unknown message: " + data.dump());
     }
 
     if (response.empty())
@@ -194,10 +221,12 @@ void Server::manage_message_from_client(std::string message, std::shared_ptr<tcp
     asio::async_write(*socket, asio::buffer(response),
         [this, socket, client_id, response](const asio::error_code& ec, std::size_t /*length*/) {
             if (!ec) {
-                std::cout << "[Server] Client #" << client_id << " - Response sent: " << response << "\n";
+                LOG_INFO("Client #" + std::to_string(client_id) + 
+                        " - Response sent: " + response);
                 handle_client(socket, client_id);
             } else {
-                std::cerr << "[Server] Client #" << client_id << " - Write error: " << ec.message() << "\n";
+                LOG_ERROR("Client #" + std::to_string(client_id) + 
+                         " - Write error: " + ec.message());
                 session_keys_asymetric_map.erase(client_id);
                 session_keys_symetric_map.erase(client_id);
                 client_sockets.erase(client_id);
@@ -212,12 +241,12 @@ void Server::start_accept() {
             if (!ec) {
                 int client_id = ++connection_counter_;
                 auto remote = socket->remote_endpoint();
-                std::cout << "[INFO] New connection #" << client_id
-                          << " from " << remote.address().to_string()
-                          << ":" << remote.port() << "\n";
+                LOG_COMMUNICATION("[Server] New connection #" + std::to_string(client_id) +
+                                 " from " + remote.address().to_string() +
+                                 ":" + std::to_string(remote.port()));
                 handle_client(socket, client_id);
             } else {
-                std::cerr << "[ERROR] Accept failed: " << ec.message() << "\n";
+                LOG_ERROR("Accept failed: " + ec.message());
             }
             start_accept();
         });
@@ -232,18 +261,21 @@ void Server::handle_client(std::shared_ptr<tcp::socket> socket, int client_id) {
                     std::istream is(buffer.get());
                     std::string message;
                     std::getline(is, message);
-                    std::cout << "[Server] Client #" << client_id << " - Received: '" << message << "'\n";
+                    LOG_INFO("Client #" + std::to_string(client_id) + 
+                            " - Received: '" + message + "'");
                     client_sockets.insert({client_id, socket});
 
                     manage_message_from_client(message, socket, client_id);
 
                 } else if (ec == asio::error::eof) {
-                    std::cout << "[Server] Client #" << client_id << " disconnected\n";
+                    LOG_COMMUNICATION("[Server] Client #" + std::to_string(client_id) + 
+                                     " disconnected");
                     session_keys_asymetric_map.erase(client_id);
                     session_keys_symetric_map.erase(client_id);
                     client_sockets.erase(client_id);
                 } else {
-                    std::cerr << "[Server] Client #" << client_id << " - Read error: " << ec.message() << "\n";
+                    LOG_ERROR("Client #" + std::to_string(client_id) + 
+                             " - Read error: " + ec.message());
                     session_keys_asymetric_map.erase(client_id);
                     session_keys_symetric_map.erase(client_id);
                     client_sockets.erase(client_id);
@@ -259,10 +291,12 @@ int main() {
         asio::signal_set signals(io, SIGINT, SIGTERM);
         signals.async_wait(handle_signal);
 
-        std::cout << "[INFO] Server running on port 8080...\n";
+        CONSOLE_ONLY("[INFO] Server running on port 8080...");
+        LOG_INFO("Server initialized and running on port 8080");
         io.run();
     } catch (const std::exception& e) {
-        std::cerr << "[ERROR] Exception: " << e.what() << "\n";
+        LOG_ERROR("Exception: " + std::string(e.what()));
+        CONSOLE_ONLY("[ERROR] Server exception: " + std::string(e.what()));
     }
 
     return 0;

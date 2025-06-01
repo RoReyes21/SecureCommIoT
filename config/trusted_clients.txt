@@ -1,0 +1,3 @@
+# Trusted Clients List
+# Format: client_id|public_key_hex|long_term_public_key_hex
+client1|ae4a6c45ffa9d805de98933663b505f2eff2270658561c040e0461181e082562|9790421a48ad0812403e3c964f8f76ee4279aecc3d8abc9a3610b41f185d1ffe

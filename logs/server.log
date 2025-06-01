@@ -1,0 +1,28 @@
+
+==================================================
+Server started at: 2025-05-31 19:28:09.595
+==================================================
+[2025-05-31 19:28:09.596] [INFO] Server initialized and running on port 8080
+[2025-05-31 19:28:28.628] [COMM] [Server] New connection #1 from 127.0.0.1:62131
+[2025-05-31 19:28:28.629] [INFO] Client #1 - Received: '{"device_ID":"client1","long_term_public_key_hex":"9790421a48ad0812403e3c964f8f76ee4279aecc3d8abc9a3610b41f185d1ffe","method":"HelloFIUNAM","nounce":0,"public_key_hex":"ae4a6c45ffa9d805de98933663b505f2eff2270658561c040e0461181e082562","signature_hex":"5676eddaff6d7ab6ae54b1ffc10f567de60db6e8d8224c7ea061853075ed08029952623d8a5c166904b0800a6b3308e427e59c4521f045b2d7f6900d69de6403"}0x66696E'
+[2025-05-31 19:28:28.629] [COMM] [Server] Client #1 - Received request to establish secure connection
+[2025-05-31 19:28:28.629] [INFO] Client trust check - Result: NOT_TRUSTED
+[2025-05-31 19:28:28.629] [SECURITY] Client #1 not in trusted list, attempting authentication...
+[2025-05-31 19:28:28.629] [INFO] Authenticating device: client1 for client #1
+[2025-05-31 19:28:28.629] [INFO] Device authentication result for client1: SUCCESS
+[2025-05-31 19:28:28.629] [SECURITY] Client #1 successfully authenticated and added to trusted list
+[2025-05-31 19:28:28.629] [COMM] [Server] Client #1 - TRUSTED CLIENT - Unique session keys generated
+[2025-05-31 19:28:28.629] [INFO] Client #1 - Response sent: {"long_term_public_key_hex":"85fd06928cfefdbf5381ea0d080ca3816457d4b7c5ecc04ee373a523d472fc54","method":"WhatsUpFIUNAM","nounce":0,"public_key_hex":"31cf520c1c11d133c86197c6f6abc06f33856431b51df3f4c6babf81b1c6d003","server_ID":"12345","signature_hex":"a32625b66821ad9bf086f6b8310dd15bd543bbef68b4eef7f3aaf530aa836bd94fe9b1d959a51818fd33d2227684b34c954bd0a65f343242866ee6205c3dd30c"}0x66696E
+[2025-05-31 19:28:28.630] [INFO] Client #1 - Received: '{"algorithm":"ChaCha20","method":"AgreeParams","nounce":1}0x66696E'
+[2025-05-31 19:28:28.630] [COMM] [Server] Client #1 - Received parameters to establish secure connection
+[2025-05-31 19:28:28.630] [INFO] Client #1 - Response sent: {"OK":"ok","method":"StartConversation","nounce":1}0x66696E
+[2025-05-31 19:29:48.305] [INFO] Client #1 - Received: '{"message":"d67e38d83c40842ce70858721673eea4da14","method":"simple_message","nounce":"26ce44361fccce5d8403c461"}0x66696E'
+[2025-05-31 19:29:48.305] [INFO] Client #1 - Received simple message crypted: d67e38d83c40842ce70858721673eea4da14
+[2025-05-31 19:29:48.305] [INFO] Client #1 - Nounce: 26ce44361fccce5d8403c461
+[2025-05-31 19:29:48.306] [COMM] [Server] Client #1 - Decrypted message: ll
+[2025-05-31 19:29:48.306] [INFO] Client #1 - Response sent: {"message":"9899f77389c2b071eea96509f4c1d8640a307abc7f895b3a62","method":"conn_continue","nounce":"6f005f9211c81ab1b7566ad9"}0x66696E
+[2025-05-31 19:29:53.067] [INFO] Client #1 - Received: '{"message":"22ec1cb81299063dd75e3ef4bcbf9013c0a5cf","method":"simple_message","nounce":"cabdd558bac9d1325ae7912a"}0x66696E'
+[2025-05-31 19:29:53.067] [INFO] Client #1 - Received simple message crypted: 22ec1cb81299063dd75e3ef4bcbf9013c0a5cf
+[2025-05-31 19:29:53.067] [INFO] Client #1 - Nounce: cabdd558bac9d1325ae7912a
+[2025-05-31 19:29:53.067] [COMM] [Server] Client #1 - Decrypted message: lol
+[2025-05-31 19:29:53.067] [INFO] Client #1 - Response sent: {"message":"31d64cd95833ddc5909a65a845cf5a17674b4fab667f5b8010","method":"conn_continue","nounce":"de6c9b1aecf996a154ddadcd"}0x66696E

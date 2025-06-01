@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <thread>
 #include <chrono>
+#include <sodium.h> // Incluir libsodium
 
 #include "socket_client.h"
 #include "../encryption/data_encryp.h"
@@ -13,6 +14,10 @@ class Client {
 public:
     Client(const std::string& server_ip, const std::string& server_port, const std::string& client_id = "default") 
         : socket_client(server_ip, server_port), device_id(client_id), session_keys_asymetric("keys/client_" + client_id + "_keys.bin") {
+        // Inicializar libsodium
+        if (sodium_init() < 0) {
+            throw std::runtime_error("Failed to initialize libsodium");
+        }
         io_thread = std::thread([this]() {
             socket_client.run();
         });
@@ -26,7 +31,7 @@ public:
     bool establish_secure_connection_with_server();
     bool is_valid_response_from_server(std::string response);
     bool validate_signature(json data);
-    int get_nounce() { return nounce++; }
+    std::string get_random_nonce();  // Cambiar de int a string
     SessionKeysSymetric get_session_keys_symetric() {
         return session_keys_symetric;
     }
@@ -35,7 +40,6 @@ public:
 private:
     SocketClient socket_client;
     std::thread io_thread;
-    int nounce = 0;
     std::string device_id;
     SessionKeysAsymetric session_keys_asymetric;
     SessionKeysSymetric session_keys_symetric;   

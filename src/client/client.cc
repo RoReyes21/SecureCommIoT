@@ -2,6 +2,7 @@
 #include "../utils/hash_utils.h"
 #include "../common/common.h"
 #include "../utils/convert_data.h"
+#include "../utils/logger.h"
 #include "messages.h"
 
 bool Client::validate_signature(json data) {
@@ -11,33 +12,30 @@ bool Client::validate_signature(json data) {
     std::vector<unsigned char> long_term_public_key_bin = hex_string_to_bin(data["long_term_public_key_hex"]);
 
     if (crypto_sign_verify_detached(signature_bin.data(), public_key_bin.data(), public_key_bin.size(), long_term_public_key_bin.data()) != 0) {
-        std::cerr << "[Error] Invalid signature from Server" << "\n";
+        LOG_ERROR("Invalid signature from Server");
+        CONSOLE_ONLY("[Client] ✗ Server signature verification failed");
         return false;
     }
 
     SessionKeysSymetric skeysim(session_keys_asymetric.public_key, session_keys_asymetric.private_key, public_key_bin, false);
     session_keys_symetric = skeysim;
 
-    std::cout << "[Server] Validated signature from Server" << "\n";
+    LOG_INFO("Server signature validated successfully");
+    CONSOLE_ONLY("[Client] ✓ Server authenticated");
 
     return true;
 }
 
-/**
- * @brief The function checks if the response from the server is valid, checks the method and parameters, save de important parameters for communication.
- * 
- * @param response 
- * @return true If the response is valid, 
- * @return false If the response is not valid
- */
 bool Client::is_valid_response_from_server(std::string response) {
     bool is_valid = false;
 
     std::size_t fin_pos = response.find(END_OF_MESSAGE);
     if (fin_pos == std::string::npos) {
-        std::cerr << "[ERROR]: The " << END_OF_MESSAGE << " delimiter was not found in the response." << "\n";
+        LOG_ERROR("The " + std::string(END_OF_MESSAGE) + " delimiter was not found in the response.");
         if (response.empty()) {
-            std::cerr << "[ERROR] Received empty response, server might have closed the connection.\n";}
+            LOG_ERROR("Received empty response, server might have closed the connection.");
+            CONSOLE_ONLY("[Client] ✗ Connection lost with server");
+        }
         return is_valid;
     }
 
@@ -46,63 +44,55 @@ bool Client::is_valid_response_from_server(std::string response) {
     try {
         data = json::parse(json_response);
     } catch (json::parse_error& e) {
-        std::cerr << "[ERROR] Json could not be parsed: " << e.what() << "\n";
+        LOG_ERROR("Json could not be parsed: " + std::string(e.what()));
         return is_valid;
     }
+
+    LOG_INFO("Processing server response method: " + std::string(data["method"]));
 
     if (data["method"] == "WhatsUpFIUNAM") {
         if (validate_signature(data))
             is_valid = true;
     }
     else if (data["method"] == "StartConversation") {
-        std::cout << "[Client] Server agreed to the parameters" << "\n";
-        std::cout << "Server simetric key: " << data["symetric_key"] << "\n";
-        std::cout << "Server nounce: " << data["nounce"] << "\n";
+        LOG_INFO("Server agreed to parameters - nounce: " + std::string(data["nounce"]));
+        CONSOLE_ONLY("[Client] ✓ Secure channel established");
         is_valid = true;
     }
-
     else if (data["method"] == "conn_continue") {
         try {
             std::string msg_clearly = decrypt_message(session_keys_symetric.rx, hex_string_to_bin(data["message"]), hex_string_to_bin(data["nounce"]));
-            std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
+            LOG_COMMUNICATION("Decrypted server response: " + msg_clearly);
+            CONSOLE_ONLY("[Server]: " + msg_clearly);
             is_valid = true;
         } catch (const std::runtime_error& e) {
-            std::cerr << "[SECURITY ALERT - CLIENT] Decryption failed for server message: " << e.what() << "\n";
-            std::cerr << "[SECURITY ALERT - CLIENT] Server message might have been tampered with. Closing connection.\n";
+            LOG_SECURITY("SECURITY ALERT - Decryption failed for server message: " + std::string(e.what()));
+            LOG_SECURITY("Server message might have been tampered with. Closing connection.");
+            CONSOLE_ONLY("[Client] ✗ Security violation detected - closing connection");
             is_valid = false;
         }
     }
 
-    //MODIFICACION - SIMULACION DE ATAQUE MESSAGE TAMPERING
-    /*else if (data["method"] == "conn_continue") {
-        std::string msg_clearly; 
-        std::vector<unsigned char> received_ciphertext = hex_string_to_bin(data["message"]);
-        std::vector<unsigned char> received_nonce = hex_string_to_bin(data["nounce"]);
-        if (!received_ciphertext.empty()) {
-            std::cout << "[Client][ATTACK SIMULATION] Tampering with received ciphertext from server for testing purposes..." << std::endl;
-            received_ciphertext[0] = ~received_ciphertext[0];
-            std::cout << "[Client][ATTACK SIMULATION] Ciphertext modified. Expecting decryption failure." << std::endl;}
-        try {
-            msg_clearly = decrypt_message(session_keys_symetric.rx,received_ciphertext, received_nonce);
-            std::cout << "[Client] Decrypted message from server: " << msg_clearly << "\n";
-            is_valid = true;
-        } catch (const std::runtime_error& e) {
-            std::cerr << "[SECURITY ALERT - CLIENT] Decryption failed for server message: " << e.what() << "\n";
-            std::cerr << "[SECURITY ALERT - CLIENT] Server message might have been tampered with. Exiting connection.\n";
-            is_valid = false;}
-    }*/
-
     return is_valid;
+}
+
+std::string Client::get_random_nonce() {
+    unsigned char random_bytes[16];
+    randombytes_buf(random_bytes, sizeof(random_bytes));
+    return bin_to_hex_string(random_bytes, sizeof(random_bytes));
 }
 
 bool Client::establish_secure_connection_with_server() {
     std::string message, response;
 
-    std::cout << "[Client] Starting hand shake to stablish secure connection with server" << "\n";
+    CONSOLE_ONLY("[Client] Establishing secure connection...");
+    LOG_INFO("Starting handshake to establish secure connection with server");
 
-    message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+    message = get_hello_message(device_id, get_random_nonce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                 bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
+    
+    LOG_INFO("Sending HelloFIUNAM message to server");
     send_message(message);
 
     response = receive_message();
@@ -111,7 +101,8 @@ bool Client::establish_secure_connection_with_server() {
         response.find("NOT TRUSTED") != std::string::npos ||
         response.empty()) {
         
-        std::cout << "[Client] Device not trusted, attempting registration...\n";
+        CONSOLE_ONLY("[Client] Device not trusted, requesting registration...");
+        LOG_INFO("Device not trusted, attempting registration");
         
         message = get_registration_request_message(device_id, 
                                                  bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
@@ -120,37 +111,43 @@ bool Client::establish_secure_connection_with_server() {
         send_message(message);
         
         response = receive_message();
-        std::cout << "[Client] Registration response: " << response << "\n";
+        LOG_INFO("Registration response received: " + response);
         
         if (response.find("RegistrationApproved") != std::string::npos) {
-            std::cout << "[Client] Device registration approved! Retrying handshake...\n";
+            CONSOLE_ONLY("[Client] ✓ Registration approved! Retrying handshake...");
+            LOG_INFO("Device registration approved, retrying handshake");
             
-            message = get_hello_message(device_id, get_nounce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
+            message = get_hello_message(device_id, get_random_nonce(), bin_to_hex_string(session_keys_asymetric.public_key, crypto_kx_PUBLICKEYBYTES),
                                         bin_to_hex_string(session_keys_asymetric.long_term_public_key, crypto_sign_PUBLICKEYBYTES),
                                         bin_to_hex_string(session_keys_asymetric.signature, crypto_sign_BYTES));
             send_message(message);
             response = receive_message();
         } else {
-            std::cout << "[Client] ✗ Device registration rejected\n";
+            CONSOLE_ONLY("[Client] ✗ Registration rejected");
+            LOG_ERROR("Device registration rejected");
             return false;
         }
     }
 
     if (!is_valid_response_from_server(response)) {
-        std::cout << "[Client] Invalid response during handshake: " << response << "\n";
+        LOG_ERROR("Invalid response during handshake: " + response);
+        CONSOLE_ONLY("[Client] ✗ Handshake failed");
         return false;
     }
 
-    message = get_agree_params_message("ChaCha20", get_nounce());
+    LOG_INFO("Sending parameter agreement (ChaCha20)");
+    message = get_agree_params_message("ChaCha20", get_random_nonce());
     send_message(message);
 
     response = receive_message();
     if (!is_valid_response_from_server(response)) {
-        std::cout << "[Client] Invalid response during parameter agreement: " << response << "\n";
+        LOG_ERROR("Invalid response during parameter agreement: " + response);
+        CONSOLE_ONLY("[Client] ✗ Parameter agreement failed");
         return false;
     }
 
-    std::cout << "[Client] ✓ Encrypted connection established with server for device: " << device_id << "\n";
+    CONSOLE_ONLY("[Client] ✓ Secure connection established with device: " + device_id);
+    LOG_INFO("Encrypted connection established with server for device: " + device_id);
     return true;
 }
 
@@ -161,23 +158,34 @@ int main(int argc, char* argv[]) {
         device_id = argv[1];
     }
     
-    std::cout << "[Client] Using device ID: " << device_id << "\n";
+    CONSOLE_ONLY("[Client] Starting client with device ID: " + device_id);
+    LOG_INFO("Client initialized with device ID: " + device_id);
     
     Client client("127.0.0.1", "8080", device_id);
 
     if (!client.establish_secure_connection_with_server()) {
-        std::cerr << "[ERROR] Could not establish a secure connection with server." << "\n";
+        CONSOLE_ONLY("[Client] ✗ Failed to establish secure connection");
+        LOG_ERROR("Could not establish a secure connection with server");
         return 1;
     }
 
+    CONSOLE_ONLY("\n=== Secure Chat Started ===");
+    CONSOLE_ONLY("Type your messages below (Ctrl+C to exit):");
+
     while (true) {
-        std::cout << "[Client][Input] Write simple message: ";
+        std::cout << "\n> ";
         std::string msg_to_server;
         std::getline(std::cin, msg_to_server);
+
+        if (msg_to_server.empty()) continue;
+
+        LOG_INFO("User input: " + msg_to_server);
 
         // Cálculo del hash del mensaje original
         std::vector<unsigned char> msg_bytes(msg_to_server.begin(), msg_to_server.end());
         std::string sha256_digest = sha256_hex(msg_bytes);
+
+        LOG_INFO("Message SHA-256: " + sha256_digest);
 
         // Encriptar el mensaje
         std::vector<unsigned char> nonce;
@@ -185,6 +193,9 @@ int main(int argc, char* argv[]) {
 
         std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
         std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
+
+        LOG_INFO("Message encrypted - ciphertext: " + string_cipher_text);
+        LOG_INFO("Encryption nonce: " + string_nonce);
 
         // Generar mensaje extendido con el hash
         json simple_msg_json = {
@@ -195,23 +206,19 @@ int main(int argc, char* argv[]) {
         };
 
         // Enviar
+        LOG_INFO("Sending encrypted message to server");
         client.send_message(simple_msg_json.dump() + END_OF_MESSAGE);
-
-        // std::vector<unsigned char> nonce;
-        // std::vector<unsigned char> ciphertext = encrypt_message(client.get_session_keys_symetric().tx, msg_to_server, nonce);
-
-        // std::string string_cipher_text = bin_to_hex_string(ciphertext.data(), ciphertext.size());
-        // std::string string_nonce = bin_to_hex_string(nonce.data(), nonce.size());
-        // client.send_message(get_simple_message(string_cipher_text, string_nonce)); //Todo, encrypt the whole message
 
         std::string response = client.receive_message();
 
         if (!client.is_valid_response_from_server(response)) {
-            std::cerr << "[Client] Exiting due to invalid or tampered server response.\n";
-            break; }
-
+            CONSOLE_ONLY("[Client] ✗ Security violation - connection terminated");
+            LOG_ERROR("Exiting due to invalid or tampered server response");
+            break; 
+        }
     }
 
+    LOG_INFO("Client shutting down");
     client.stop_socket();
 
     return 0;
